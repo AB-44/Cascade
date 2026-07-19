@@ -10,16 +10,16 @@ export interface SidebarItem {
 
 /**
  * Floating capsule nav, pinned to the reading-start edge (right in RTL,
- * left in LTR) and vertically centered — the primary way to reach the
- * app's main sections (dashboard view + the Team/Projects/Templates/
- * Archive panels). Hidden below `sm` since it would otherwise overlap
- * page content on narrow screens; those sections stay one tap away via
- * their own panels either way.
+ * left in LTR), sitting a bit above vertical center — the primary way
+ * to reach the app's main sections (dashboard view + the Team/Projects/
+ * Templates/Archive panels). Hidden below `sm` since it would otherwise
+ * overlap page content on narrow screens; those sections stay one tap
+ * away via their own panels either way.
  */
 export default function Sidebar({ items }: { items: SidebarItem[] }) {
   return (
     <nav
-      className="no-print fixed start-4 top-1/2 z-40 hidden -translate-y-1/2 flex-col items-center gap-1 rounded-full border border-line bg-card/90 p-2 shadow-lg backdrop-blur-md sm:flex"
+      className="no-print fixed start-4 top-[38%] z-40 hidden -translate-y-1/2 flex-col items-center gap-1 rounded-full border border-line bg-card/90 p-2 shadow-lg backdrop-blur-md sm:flex"
       aria-label="Main"
     >
       {items.map((item) => (

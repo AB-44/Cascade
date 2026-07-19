@@ -321,11 +321,11 @@ function Shell() {
   ];
 
   return (
-    <div className="min-h-screen bg-basin text-ink">
+    <div className="min-h-screen bg-basin text-ink sm:ps-24">
       <Sidebar items={sidebarItems} />
       {/* Header */}
       <header className="no-print sticky top-0 z-30 border-b border-line bg-basin/85 backdrop-blur-md">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:ps-24">
+        <div className="mx-auto flex max-w-[1700px] items-center justify-between gap-3 px-4 py-3">
           <div className="flex items-center gap-2.5">
             <div className="terrace-card flex h-9 w-9 items-center justify-center bg-terrace-700 text-terrace-50 shadow-sm">
               <Waves size={18} />
@@ -455,7 +455,7 @@ function Shell() {
       </header>
 
       {/* Toolbar */}
-      <div className="no-print mx-auto max-w-7xl px-4 pt-5 sm:ps-24">
+      <div className="no-print mx-auto max-w-[1700px] px-4 pt-5">
         <div className="flex flex-wrap items-center gap-2">
           {/* view switcher */}
           {!isSharedView && (
@@ -694,7 +694,7 @@ function Shell() {
       </div>
 
       {/* Main content */}
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:ps-24">
+      <main className="mx-auto max-w-[1700px] px-4 py-6">
         <div className="no-print mb-4 flex flex-wrap items-center gap-4 text-sm font-semibold text-ink-soft">
           <span className="flex items-center gap-1.5"><FolderDot size={16} className="text-terrace-500" /> {currentProjectLabel}</span>
           <span className="text-line">|</span>
