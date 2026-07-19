@@ -28,10 +28,17 @@ import {
   Mail,
   Share2,
   Waves,
+  User as UserIcon,
 } from "lucide-react";
 import { StoreProvider, useStore } from "./store";
 import type { Goal } from "./types";
-import { loadTemplates } from "./lib/storage";
+import {
+  loadTemplates,
+  loadCurrentProjectId,
+  saveCurrentProjectId,
+  loadRoadmapOwnerId,
+  saveRoadmapOwnerId,
+} from "./lib/storage";
 import { isLoggedIn, fetchMyInvitations, fetchSharedProjects, type SharedProject } from "./lib/api";
 import UserProfileMenu from "./components/UserProfileMenu";
 import ProfilePanel from "./components/ProfilePanel";
@@ -50,6 +57,7 @@ import AssignedToMePanel from "./components/AssignedToMePanel";
 import InvitationsPanel from "./components/InvitationsPanel";
 import SharedProjectsPanel from "./components/SharedProjectsPanel";
 import SharedProjectRoadmap from "./components/SharedProjectRoadmap";
+import Sidebar from "./components/Sidebar";
 import { allAssignees, allTags } from "./lib/goals";
 import { exportPDF, exportPNG, printElement } from "./lib/exporter";
 import { t, tFormat } from "./lib/i18n";
@@ -74,8 +82,8 @@ function Shell() {
   const [pendingInvitationsCount, setPendingInvitationsCount] = useState(0);
   const [sharedProjects, setSharedProjects] = useState<SharedProject[]>([]);
   const [sharedProjectsLoaded, setSharedProjectsLoaded] = useState(false);
-  const [roadmapOwnerId, setRoadmapOwnerId] = useState<string | null>(null);
-  const [currentProjectId, setCurrentProjectId] = useState<string>("all");
+  const [roadmapOwnerId, setRoadmapOwnerId] = useState<string | null>(() => loadRoadmapOwnerId());
+  const [currentProjectId, setCurrentProjectId] = useState<string>(() => loadCurrentProjectId());
   const [exportOpen, setExportOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const filterRowMounted = useMountTransition(filterOpen, 150);
@@ -133,6 +141,9 @@ function Shell() {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => saveCurrentProjectId(currentProjectId), [currentProjectId]);
+  useEffect(() => saveRoadmapOwnerId(roadmapOwnerId), [roadmapOwnerId]);
+
   useEffect(() => {
     if (!sharedProjectsLoaded) return;
     if (currentProjectId.startsWith("shared:")) {
@@ -144,6 +155,21 @@ function Shell() {
       }
     }
   }, [sharedProjects, sharedProjectsLoaded, currentProjectId]);
+
+  // A project or member remembered from a previous session may since have
+  // been deleted elsewhere — fall back to the default view instead of
+  // silently filtering everything out.
+  useEffect(() => {
+    if (currentProjectId === "all" || currentProjectId === "general") return;
+    if (currentProjectId.startsWith("shared:")) return;
+    if (projects.length === 0) return;
+    if (!projects.some((p) => p.id === currentProjectId)) setCurrentProjectId("all");
+  }, [projects, currentProjectId]);
+
+  useEffect(() => {
+    if (!roadmapOwnerId || members.length === 0) return;
+    if (!members.some((m) => m.id === roadmapOwnerId)) setRoadmapOwnerId(null);
+  }, [members, roadmapOwnerId]);
 
   const assignees = useMemo(() => allAssignees(goals), [goals]);
   const tags = useMemo(() => allTags(goals), [goals]);
@@ -275,14 +301,59 @@ function Shell() {
   const viewTabs: { id: View; icon: typeof GitBranch; key: keyof typeof import("./lib/i18n") extends never ? never : any }[] = [
     { id: "roadmap", icon: Map, key: "roadmap" },
     { id: "tree", icon: GitBranch, key: "tree" },
-    { id: "dashboard", icon: LayoutDashboard, key: "dashboard" },
+  ];
+
+  const sidebarItems = [
+    {
+      id: "dashboard",
+      icon: LayoutDashboard,
+      label: t(lang, "dashboard"),
+      active: !isSharedView && view === "dashboard",
+      onClick: () => setView("dashboard"),
+    },
+    {
+      id: "team",
+      icon: Users,
+      label: t(lang, "teamMembers"),
+      active: showTeam,
+      onClick: () => setShowTeam(true),
+    },
+    {
+      id: "projects",
+      icon: FolderDot,
+      label: t(lang, "projects"),
+      active: showProjects,
+      onClick: () => setShowProjects(true),
+    },
+    {
+      id: "archive",
+      icon: Archive,
+      label: t(lang, "archive"),
+      active: showArchive,
+      onClick: () => setShowArchive(true),
+    },
+    {
+      id: "templates",
+      icon: FileStack,
+      label: t(lang, "templates"),
+      active: showTemplates,
+      onClick: () => setShowTemplates(true),
+    },
+    {
+      id: "profile",
+      icon: UserIcon,
+      label: t(lang, "myProfile"),
+      active: showProfile,
+      onClick: () => setShowProfile(true),
+    },
   ];
 
   return (
     <div className="min-h-screen bg-basin text-ink">
+      <Sidebar items={sidebarItems} />
       {/* Header */}
       <header className="no-print sticky top-0 z-30 border-b border-line bg-basin/85 backdrop-blur-md">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:ps-24">
           <div className="flex items-center gap-2.5">
             <div className="terrace-card flex h-9 w-9 items-center justify-center bg-terrace-700 text-terrace-50 shadow-sm">
               <Waves size={18} />
@@ -332,34 +403,6 @@ function Shell() {
               className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-ink-soft hover:bg-terrace-50"
             >
               <Inbox size={19} />
-            </button>
-            <button
-              onClick={() => setShowProjects(true)}
-              title={t(lang, "projects")}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-ink-soft hover:bg-terrace-50"
-            >
-              <FolderDot size={19} />
-            </button>
-            <button
-              onClick={() => setShowTeam(true)}
-              title={t(lang, "teamMembers")}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-ink-soft hover:bg-terrace-50"
-            >
-              <Users size={19} />
-            </button>
-            <button
-              onClick={() => setShowTemplates(true)}
-              title={t(lang, "templates")}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-ink-soft hover:bg-terrace-50"
-            >
-              <FileStack size={19} />
-            </button>
-            <button
-              onClick={() => setShowArchive(true)}
-              title={t(lang, "archive")}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-ink-soft hover:bg-terrace-50"
-            >
-              <Archive size={19} />
             </button>
             <span
               title={
@@ -440,7 +483,7 @@ function Shell() {
       </header>
 
       {/* Toolbar */}
-      <div className="no-print mx-auto max-w-7xl px-4 pt-5">
+      <div className="no-print mx-auto max-w-7xl px-4 pt-5 sm:ps-24">
         <div className="flex flex-wrap items-center gap-2">
           {/* view switcher */}
           {!isSharedView && (
@@ -679,7 +722,7 @@ function Shell() {
       </div>
 
       {/* Main content */}
-      <main className="mx-auto max-w-7xl px-4 py-6">
+      <main className="mx-auto max-w-7xl px-4 py-6 sm:ps-24">
         <div className="no-print mb-4 flex flex-wrap items-center gap-4 text-sm font-semibold text-ink-soft">
           <span className="flex items-center gap-1.5"><FolderDot size={16} className="text-terrace-500" /> {currentProjectLabel}</span>
           <span className="text-line">|</span>
