@@ -6,8 +6,6 @@ const MEMBERS_KEY = "cascade_members_v1";
 const PROJECTS_KEY = "cascade_projects_v1";
 const DARK_KEY = "cascade_dark_v1";
 const LANG_KEY = "cascade_lang_v1";
-const CURRENT_PROJECT_KEY = "cascade_current_project_v1";
-const ROADMAP_OWNER_KEY = "cascade_roadmap_owner_v1";
 
 export function uid(): string {
   return (
@@ -86,41 +84,6 @@ export function loadLang(): "en" | "ar" {
 
 export function saveLang(lang: "en" | "ar") {
   localStorage.setItem(LANG_KEY, lang);
-}
-
-/** Remembers which project/workspace filter was active, so relaunching the
- *  app returns to the same place instead of resetting to "All Projects". */
-export function loadCurrentProjectId(): string {
-  try {
-    return localStorage.getItem(CURRENT_PROJECT_KEY) || "all";
-  } catch {
-    return "all";
-  }
-}
-export function saveCurrentProjectId(id: string) {
-  try {
-    localStorage.setItem(CURRENT_PROJECT_KEY, id);
-  } catch {
-    /* ignore (e.g. storage disabled/full) */
-  }
-}
-
-/** Same idea for the roadmap-owner filter (team roadmap vs. a member's
- *  personal one). Stored as "team" for the null/team-wide case. */
-export function loadRoadmapOwnerId(): string | null {
-  try {
-    const raw = localStorage.getItem(ROADMAP_OWNER_KEY);
-    return raw && raw !== "team" ? raw : null;
-  } catch {
-    return null;
-  }
-}
-export function saveRoadmapOwnerId(id: string | null) {
-  try {
-    localStorage.setItem(ROADMAP_OWNER_KEY, id ?? "team");
-  } catch {
-    /* ignore */
-  }
 }
 
 export function loadMembers(): TeamMember[] {

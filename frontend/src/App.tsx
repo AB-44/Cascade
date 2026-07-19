@@ -28,17 +28,10 @@ import {
   Mail,
   Share2,
   Waves,
-  User as UserIcon,
 } from "lucide-react";
 import { StoreProvider, useStore } from "./store";
 import type { Goal } from "./types";
-import {
-  loadTemplates,
-  loadCurrentProjectId,
-  saveCurrentProjectId,
-  loadRoadmapOwnerId,
-  saveRoadmapOwnerId,
-} from "./lib/storage";
+import { loadTemplates } from "./lib/storage";
 import { isLoggedIn, fetchMyInvitations, fetchSharedProjects, type SharedProject } from "./lib/api";
 import UserProfileMenu from "./components/UserProfileMenu";
 import ProfilePanel from "./components/ProfilePanel";
@@ -82,8 +75,8 @@ function Shell() {
   const [pendingInvitationsCount, setPendingInvitationsCount] = useState(0);
   const [sharedProjects, setSharedProjects] = useState<SharedProject[]>([]);
   const [sharedProjectsLoaded, setSharedProjectsLoaded] = useState(false);
-  const [roadmapOwnerId, setRoadmapOwnerId] = useState<string | null>(() => loadRoadmapOwnerId());
-  const [currentProjectId, setCurrentProjectId] = useState<string>(() => loadCurrentProjectId());
+  const [roadmapOwnerId, setRoadmapOwnerId] = useState<string | null>(null);
+  const [currentProjectId, setCurrentProjectId] = useState<string>("all");
   const [exportOpen, setExportOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const filterRowMounted = useMountTransition(filterOpen, 150);
@@ -141,9 +134,6 @@ function Shell() {
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => saveCurrentProjectId(currentProjectId), [currentProjectId]);
-  useEffect(() => saveRoadmapOwnerId(roadmapOwnerId), [roadmapOwnerId]);
-
   useEffect(() => {
     if (!sharedProjectsLoaded) return;
     if (currentProjectId.startsWith("shared:")) {
@@ -155,21 +145,6 @@ function Shell() {
       }
     }
   }, [sharedProjects, sharedProjectsLoaded, currentProjectId]);
-
-  // A project or member remembered from a previous session may since have
-  // been deleted elsewhere — fall back to the default view instead of
-  // silently filtering everything out.
-  useEffect(() => {
-    if (currentProjectId === "all" || currentProjectId === "general") return;
-    if (currentProjectId.startsWith("shared:")) return;
-    if (projects.length === 0) return;
-    if (!projects.some((p) => p.id === currentProjectId)) setCurrentProjectId("all");
-  }, [projects, currentProjectId]);
-
-  useEffect(() => {
-    if (!roadmapOwnerId || members.length === 0) return;
-    if (!members.some((m) => m.id === roadmapOwnerId)) setRoadmapOwnerId(null);
-  }, [members, roadmapOwnerId]);
 
   const assignees = useMemo(() => allAssignees(goals), [goals]);
   const tags = useMemo(() => allTags(goals), [goals]);
@@ -338,13 +313,6 @@ function Shell() {
       label: t(lang, "templates"),
       active: showTemplates,
       onClick: () => setShowTemplates(true),
-    },
-    {
-      id: "profile",
-      icon: UserIcon,
-      label: t(lang, "myProfile"),
-      active: showProfile,
-      onClick: () => setShowProfile(true),
     },
   ];
 
