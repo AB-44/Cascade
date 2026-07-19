@@ -6,6 +6,7 @@ const MEMBERS_KEY = "cascade_members_v1";
 const PROJECTS_KEY = "cascade_projects_v1";
 const DARK_KEY = "cascade_dark_v1";
 const LANG_KEY = "cascade_lang_v1";
+const CURRENT_PROJECT_KEY = "cascade_current_project_v1";
 
 export function uid(): string {
   return (
@@ -84,6 +85,19 @@ export function loadLang(): "en" | "ar" {
 
 export function saveLang(lang: "en" | "ar") {
   localStorage.setItem(LANG_KEY, lang);
+}
+
+export function loadCurrentProjectId(): string {
+  try {
+    const raw = localStorage.getItem(CURRENT_PROJECT_KEY);
+    return raw ?? "all";
+  } catch {
+    return "all";
+  }
+}
+
+export function saveCurrentProjectId(projectId: string) {
+  localStorage.setItem(CURRENT_PROJECT_KEY, projectId);
 }
 
 export function loadMembers(): TeamMember[] {

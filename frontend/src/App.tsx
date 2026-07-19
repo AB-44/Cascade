@@ -31,7 +31,7 @@ import {
 } from "lucide-react";
 import { StoreProvider, useStore } from "./store";
 import type { Goal } from "./types";
-import { loadTemplates } from "./lib/storage";
+import { loadTemplates, loadCurrentProjectId, saveCurrentProjectId } from "./lib/storage";
 import { isLoggedIn, fetchMyInvitations, fetchSharedProjects, type SharedProject } from "./lib/api";
 import UserProfileMenu from "./components/UserProfileMenu";
 import ProfilePanel from "./components/ProfilePanel";
@@ -76,7 +76,7 @@ function Shell() {
   const [sharedProjects, setSharedProjects] = useState<SharedProject[]>([]);
   const [sharedProjectsLoaded, setSharedProjectsLoaded] = useState(false);
   const [roadmapOwnerId, setRoadmapOwnerId] = useState<string | null>(null);
-  const [currentProjectId, setCurrentProjectId] = useState<string>("all");
+  const [currentProjectId, setCurrentProjectId] = useState<string>(() => loadCurrentProjectId());
   const [exportOpen, setExportOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const filterRowMounted = useMountTransition(filterOpen, 150);
@@ -133,6 +133,10 @@ function Shell() {
     const interval = setInterval(loadSharedProjects, 30000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    saveCurrentProjectId(currentProjectId);
+  }, [currentProjectId]);
 
   useEffect(() => {
     if (!sharedProjectsLoaded) return;
