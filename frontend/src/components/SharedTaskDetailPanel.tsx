@@ -11,6 +11,7 @@ import {
   Play,
   Pause,
   Lock,
+  StickyNote,
 } from "lucide-react";
 import {
   updateSharedGoal,
@@ -72,6 +73,7 @@ export default function SharedTaskDetailPanel({ project, goal, onClose, onProjec
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<{ images: string[]; index: number } | null>(null);
   const [now, setNow] = useState(Date.now());
+  const [notesOpenIds, setNotesOpenIds] = useState<Set<string>>(new Set());
   const fileInputs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const anyItemRunning = goal.checklist.some((c) => c.startedAt);
@@ -220,6 +222,26 @@ export default function SharedTaskDetailPanel({ project, goal, onClose, onProjec
       await updateSharedChecklistItem(project.id, goal.id, item.id, { images });
       patchItem(item.id, { images });
     });
+
+  const [notesDraft, setNotesDraft] = useState<Record<string, string>>({});
+
+  const commitNotes = (item: SharedProjectChecklistItem) => {
+    const draft = notesDraft[item.id];
+    if (draft === undefined || draft === (item.notes ?? "")) return;
+    run(async () => {
+      await updateSharedChecklistItem(project.id, goal.id, item.id, { notes: draft });
+      patchItem(item.id, { notes: draft });
+    });
+  };
+
+  const toggleNotesOpen = (itemId: string) => {
+    setNotesOpenIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+  };
 
   const doneCount = goal.checklist.filter((c) => c.done).length;
   const elapsedMs = (goal.accumulatedMs ?? 0) + (goal.startedAt ? now - new Date(goal.startedAt).getTime() : 0);
@@ -392,6 +414,15 @@ export default function SharedTaskDetailPanel({ project, goal, onClose, onProjec
                         </button>
                       </>
                     )}
+                    <button
+                      onClick={() => toggleNotesOpen(item.id)}
+                      title="ملاحظة"
+                      className={`shrink-0 rounded-md p-1 transition-colors duration-150 hover:bg-terrace-500/10 hover:text-terrace-600 ${
+                        notesOpenIds.has(item.id) || item.notes ? "text-terrace-600" : "text-ink-soft"
+                      }`}
+                    >
+                      <StickyNote size={16} />
+                    </button>
                   </div>
 
                   {item.images.length > 0 && (
@@ -414,6 +445,18 @@ export default function SharedTaskDetailPanel({ project, goal, onClose, onProjec
                         </div>
                       ))}
                     </div>
+                  )}
+
+                  {notesOpenIds.has(item.id) && (
+                    <textarea
+                      value={notesDraft[item.id] ?? item.notes ?? ""}
+                      disabled={!canManage || busy}
+                      onChange={(e) => setNotesDraft((d) => ({ ...d, [item.id]: e.target.value }))}
+                      onBlur={() => commitNotes(item)}
+                      placeholder="أضف ملاحظة..."
+                      rows={2}
+                      className="mt-2 ms-6 w-[calc(100%-1.5rem)] resize-y rounded-lg border border-line bg-card px-2.5 py-1.5 text-xs text-ink-soft outline-none transition-colors duration-150 placeholder:text-ink-soft/50 focus:border-terrace-400 disabled:opacity-60"
+                    />
                   )}
 
                   {canManage && (

@@ -14,6 +14,7 @@ export interface ChecklistItem {
   done: boolean;
   image?: string | null; // data URL (legacy, kept for backward compatibility)
   images?: string[]; // data URLs - multiple images per task item
+  notes?: string; // free-form notes, typically jotted down once the step is done
   startedAt?: string | null; // ISO datetime - focus timer running segment start
   accumulatedMs?: number; // total focus time accumulated on this item, in ms
   timerPaused?: boolean; // true if the focus timer was started then paused

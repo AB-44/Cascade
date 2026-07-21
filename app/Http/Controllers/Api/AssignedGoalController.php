@@ -95,6 +95,7 @@ class AssignedGoalController extends Controller
 
         $data = $request->validate([
             'done' => ['sometimes', 'boolean'],
+            'notes' => ['sometimes', 'nullable', 'string'],
             'startedAt' => ['sometimes', 'nullable', 'date'],
             'accumulatedMs' => ['sometimes', 'integer', 'min:0'],
             'timerPaused' => ['sometimes', 'boolean'],
@@ -102,6 +103,7 @@ class AssignedGoalController extends Controller
 
         $checklistItem->update([
             'done' => $data['done'] ?? $checklistItem->done,
+            'notes' => array_key_exists('notes', $data) ? $data['notes'] : $checklistItem->notes,
             'started_at' => array_key_exists('startedAt', $data) ? $data['startedAt'] : $checklistItem->started_at,
             'accumulated_ms' => $data['accumulatedMs'] ?? $checklistItem->accumulated_ms,
             'timer_paused' => $data['timerPaused'] ?? $checklistItem->timer_paused,
@@ -170,6 +172,7 @@ class AssignedGoalController extends Controller
             'checklist' => $goal->checklistItems->map(fn ($item) => [
                 'id' => $item->id,
                 'text' => $item->text,
+                'notes' => $item->notes ?? '',
                 'done' => $item->done,
                 'startedAt' => $item->started_at?->toIso8601String(),
                 'accumulatedMs' => (int) $item->accumulated_ms,

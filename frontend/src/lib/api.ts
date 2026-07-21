@@ -190,6 +190,7 @@ export function syncTemplates(templates: Template[]): Promise<void> {
 export interface AssignedChecklistItem {
   id: string;
   text: string;
+  notes: string;
   done: boolean;
   startedAt: string | null;
   accumulatedMs: number;
@@ -239,6 +240,7 @@ export function updateAssignedGoal(goalId: string, patch: AssignedGoalPatch): Pr
 
 export interface AssignedChecklistPatch {
   done?: boolean;
+  notes?: string;
   startedAt?: string | null;
   accumulatedMs?: number;
   timerPaused?: boolean;
@@ -316,6 +318,7 @@ export function declineInvitation(invitationId: string): Promise<void> {
 export interface SharedProjectChecklistItem {
   id: string;
   text: string;
+  notes: string;
   done: boolean;
   images: string[];
   startedAt: string | null;
@@ -404,6 +407,7 @@ export function updateSharedGoal(
 
 export interface SharedChecklistPatch {
   done?: boolean;
+  notes?: string;
   images?: string[];
   startedAt?: string | null;
   accumulatedMs?: number;

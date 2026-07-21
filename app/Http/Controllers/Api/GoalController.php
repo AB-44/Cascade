@@ -84,6 +84,7 @@ class GoalController extends Controller
                 ['id' => $item['id'], 'goal_id' => $goal->id],
                 [
                     'text' => $item['text'],
+                    'notes' => $item['notes'] ?? null,
                     'done' => $item['done'],
                     'images' => $item['images'] ?? [],
                     'order_index' => $index,

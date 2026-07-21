@@ -34,7 +34,7 @@ export default function NotificationBell({ onGoto }: { onGoto: (id: string) => v
           setOpen((v) => !v);
           requestNotificationPermission();
         }}
-        className="relative inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700"
+        className="relative inline-flex h-9 w-9 items-center justify-center rounded-lg text-ink-soft hover:bg-basin-2"
       >
         <Bell size={19} />
         {count > 0 && (
@@ -44,27 +44,37 @@ export default function NotificationBell({ onGoto }: { onGoto: (id: string) => v
         )}
       </button>
       {open && (
-        <div className="absolute end-0 z-50 mt-2 w-80 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl animate-menu-in dark:border-slate-700 dark:bg-slate-800">
-          <div className="border-b border-slate-200 px-4 py-3 text-sm font-bold text-slate-900 dark:border-slate-700 dark:text-white">
+        <div className="absolute end-0 z-50 mt-2 w-80 overflow-hidden rounded-xl border border-line bg-card shadow-xl animate-menu-in">
+          <div className="border-b border-line px-4 py-3 text-sm font-bold text-ink">
             {t(lang, "notifications")}
           </div>
-          <div className="max-h-80 overflow-y-auto">
+          <div className="max-h-80 overflow-y-auto p-3">
             {count === 0 ? (
-              <p className="px-4 py-8 text-center text-sm text-slate-400">{t(lang, "allCaughtUp")}</p>
+              <p className="px-2 py-8 text-center text-sm text-ink-soft">{t(lang, "allCaughtUp")}</p>
             ) : (
-              items.map((it, i) => (
-                <button
-                  key={i}
-                  onClick={() => {
-                    onGoto(it.goal.id);
-                    setOpen(false);
-                  }}
-                  className="flex w-full items-center gap-3 border-b border-slate-100 px-4 py-3 text-start transition last:border-0 hover:bg-slate-50 dark:border-slate-700/50 dark:hover:bg-slate-700/50"
-                >
-                  {icon(it.kind)}
-                  <span className="text-sm text-slate-700 dark:text-slate-200">{it.text}</span>
-                </button>
-              ))
+              <div className="notif-stack" data-peek={items.length > 1}>
+                {items.slice(0, 3).map((it, i) => (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      onGoto(it.goal.id);
+                      setOpen(false);
+                    }}
+                    style={{ zIndex: 3 - i }}
+                    className="terrace-card notif-stack-card flex w-full items-center gap-3 px-4 py-3 text-start"
+                  >
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-line bg-card">
+                      {icon(it.kind)}
+                    </span>
+                    <span className="min-w-0 text-sm text-ink">{it.text}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {count > 3 && (
+              <p className="mt-2 px-2 text-center text-xs text-ink-soft">
+                +{count - 3} {t(lang, "notifications")}
+              </p>
             )}
           </div>
         </div>

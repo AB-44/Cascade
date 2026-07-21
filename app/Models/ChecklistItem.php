@@ -11,7 +11,7 @@ class ChecklistItem extends Model
     protected $keyType = 'string';
 
     protected $fillable = [
-        'id', 'goal_id', 'text', 'done', 'images', 'order_index',
+        'id', 'goal_id', 'text', 'notes', 'done', 'images', 'order_index',
         'started_at', 'accumulated_ms', 'timer_paused',
     ];
 

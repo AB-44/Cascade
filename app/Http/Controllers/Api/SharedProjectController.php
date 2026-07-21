@@ -124,6 +124,7 @@ class SharedProjectController extends Controller
 
         $data = $request->validate([
             'done' => ['sometimes', 'boolean'],
+            'notes' => ['sometimes', 'nullable', 'string'],
             'images' => ['sometimes', 'array'],
             'images.*' => ['string'],
             'startedAt' => ['sometimes', 'nullable', 'date'],
@@ -133,6 +134,7 @@ class SharedProjectController extends Controller
 
         $checklistItem->update([
             'done' => $data['done'] ?? $checklistItem->done,
+            'notes' => array_key_exists('notes', $data) ? $data['notes'] : $checklistItem->notes,
             'images' => $data['images'] ?? $checklistItem->images,
             'started_at' => array_key_exists('startedAt', $data) ? $data['startedAt'] : $checklistItem->started_at,
             'accumulated_ms' => $data['accumulatedMs'] ?? $checklistItem->accumulated_ms,
@@ -170,6 +172,7 @@ class SharedProjectController extends Controller
             'item' => [
                 'id' => $item->id,
                 'text' => $item->text,
+                'notes' => $item->notes ?? '',
                 'done' => $item->done,
                 'images' => $item->images ?? [],
                 'startedAt' => null,
@@ -280,6 +283,7 @@ class SharedProjectController extends Controller
             'checklist' => $goal->checklistItems->map(fn ($item) => [
                 'id' => $item->id,
                 'text' => $item->text,
+                'notes' => $item->notes ?? '',
                 'done' => $item->done,
                 'images' => $item->images ?? [],
                 'startedAt' => $item->started_at?->toIso8601String(),

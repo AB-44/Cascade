@@ -49,6 +49,7 @@ class SyncGoalsRequest extends FormRequest
             'goals.*.checklist' => ['array'],
             'goals.*.checklist.*.id' => ['required', 'string'],
             'goals.*.checklist.*.text' => ['required', 'string'],
+            'goals.*.checklist.*.notes' => ['nullable', 'string'],
             'goals.*.checklist.*.done' => ['required', 'boolean'],
             'goals.*.checklist.*.images' => ['array'],
             'goals.*.checklist.*.images.*' => ['string'],

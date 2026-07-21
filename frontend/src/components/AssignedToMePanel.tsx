@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Inbox, X, Loader2, CheckSquare, Square, User, FolderDot, Lock } from "lucide-react";
+import { Inbox, X, Loader2, CheckSquare, Square, User, FolderDot, Lock, StickyNote } from "lucide-react";
 import {
   fetchAssignedToMe,
   updateAssignedGoal,
@@ -24,6 +24,8 @@ export default function AssignedToMePanel({ onClose }: { onClose: () => void }) 
   const [goals, setGoals] = useState<AssignedGoal[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [notesOpenIds, setNotesOpenIds] = useState<Set<string>>(new Set());
+  const [notesDraft, setNotesDraft] = useState<Record<string, string>>({});
 
   const load = () => {
     setError(null);
@@ -65,6 +67,34 @@ export default function AssignedToMePanel({ onClose }: { onClose: () => void }) 
     } finally {
       setBusyId(null);
     }
+  };
+
+  const commitNotes = async (goal: AssignedGoal, itemId: string) => {
+    const draft = notesDraft[itemId];
+    const current = goal.checklist.find((it) => it.id === itemId)?.notes ?? "";
+    if (draft === undefined || draft === current) return;
+    try {
+      await updateAssignedChecklistItem(goal.id, itemId, { notes: draft });
+      setGoals(
+        (prev) =>
+          prev?.map((g) =>
+            g.id === goal.id
+              ? { ...g, checklist: g.checklist.map((it) => (it.id === itemId ? { ...it, notes: draft } : it)) }
+              : g,
+          ) ?? null,
+      );
+    } catch {
+      setError("تعذّر حفظ الملاحظة");
+    }
+  };
+
+  const toggleNotesOpen = (itemId: string) => {
+    setNotesOpenIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
   };
 
   return (
@@ -160,21 +190,46 @@ export default function AssignedToMePanel({ onClose }: { onClose: () => void }) 
               {g.checklist.length > 0 && (
                 <div className="space-y-1 border-t border-line pt-2">
                   {g.checklist.map((item) => (
-                    <button
-                      key={item.id}
-                      disabled={busyId === g.id || g.locked}
-                      onClick={() => toggleItem(g, item.id, !item.done)}
-                      className="flex w-full items-center gap-2 rounded-lg px-1.5 py-1 text-start text-xs transition-colors duration-150 hover:bg-terrace-500/10 disabled:opacity-60"
-                    >
-                      {item.done ? (
-                        <CheckSquare size={15} className="shrink-0 text-terrace-600" />
-                      ) : (
-                        <Square size={15} className="shrink-0 text-ink-soft/40" />
+                    <div key={item.id}>
+                      <div className="flex items-center gap-1">
+                        <button
+                          disabled={busyId === g.id || g.locked}
+                          onClick={() => toggleItem(g, item.id, !item.done)}
+                          className="flex flex-1 items-center gap-2 rounded-lg px-1.5 py-1 text-start text-xs transition-colors duration-150 hover:bg-terrace-500/10 disabled:opacity-60"
+                        >
+                          {item.done ? (
+                            <CheckSquare size={15} className="shrink-0 text-terrace-600" />
+                          ) : (
+                            <Square size={15} className="shrink-0 text-ink-soft/40" />
+                          )}
+                          <span className={item.done ? "text-ink-soft line-through" : "text-ink"}>
+                            {item.text}
+                          </span>
+                        </button>
+                        {!g.locked && (
+                          <button
+                            onClick={() => toggleNotesOpen(item.id)}
+                            title="ملاحظة"
+                            className={`shrink-0 rounded-md p-1 transition-colors duration-150 hover:bg-terrace-500/10 hover:text-terrace-600 ${
+                              notesOpenIds.has(item.id) || item.notes ? "text-terrace-600" : "text-ink-soft/50"
+                            }`}
+                          >
+                            <StickyNote size={13} />
+                          </button>
+                        )}
+                      </div>
+                      {notesOpenIds.has(item.id) && (
+                        <textarea
+                          value={notesDraft[item.id] ?? item.notes ?? ""}
+                          disabled={busyId === g.id || g.locked}
+                          onChange={(e) => setNotesDraft((d) => ({ ...d, [item.id]: e.target.value }))}
+                          onBlur={() => commitNotes(g, item.id)}
+                          placeholder="أضف ملاحظة..."
+                          rows={2}
+                          className="mt-1 w-full resize-y rounded-lg border border-line bg-card px-2.5 py-1.5 text-xs text-ink-soft outline-none transition-colors duration-150 placeholder:text-ink-soft/50 focus:border-terrace-400 disabled:opacity-60"
+                        />
                       )}
-                      <span className={item.done ? "text-ink-soft line-through" : "text-ink"}>
-                        {item.text}
-                      </span>
-                    </button>
+                    </div>
                   ))}
                 </div>
               )}

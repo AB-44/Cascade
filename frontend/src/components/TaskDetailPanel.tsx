@@ -19,6 +19,7 @@ import {
   ChevronLeft,
   ChevronRight,
   GripVertical,
+  StickyNote,
 } from "lucide-react";
 import type { Goal, ChecklistItem, TimeSession } from "../types";
 import { useStore } from "../store";
@@ -198,6 +199,10 @@ export default function TaskDetailPanel({ goal, onClose }: Props) {
 
   const updateText = (itemId: string, text: string) => {
     patchList(goal.checklist.map((c) => (c.id === itemId ? { ...c, text } : c)));
+  };
+
+  const updateItemNotes = (itemId: string, notes: string) => {
+    patchList(goal.checklist.map((c) => (c.id === itemId ? { ...c, notes } : c)));
   };
 
   const addImagesToItem = async (itemId: string, files: FileList) => {
@@ -546,6 +551,7 @@ export default function TaskDetailPanel({ goal, onClose }: Props) {
                     item={item}
                     onToggle={() => toggleCheck(item.id)}
                     onTextChange={(text) => updateText(item.id, text)}
+                    onNotesChange={(notes) => updateItemNotes(item.id, notes)}
                     onAddImages={(files) => addImagesToItem(item.id, files)}
                     onRemoveImage={(idx) => removeImage(item.id, idx)}
                     onDelete={() => removeItem(item.id)}
@@ -712,6 +718,7 @@ function TaskItem({
   item,
   onToggle,
   onTextChange,
+  onNotesChange,
   onAddImages,
   onRemoveImage,
   onDelete,
@@ -726,6 +733,7 @@ function TaskItem({
   item: ChecklistItem;
   onToggle: () => void;
   onTextChange: (text: string) => void;
+  onNotesChange: (notes: string) => void;
   onAddImages: (files: FileList) => void;
   onRemoveImage: (index: number) => void;
   onDelete: () => void;
@@ -739,6 +747,7 @@ function TaskItem({
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(!!item.notes);
   const images = item.images ?? (item.image ? [item.image] : []);
   const canAddMore = images.length < MAX_IMAGES_PER_ITEM;
   const itemElapsedMs =
@@ -793,6 +802,15 @@ function TaskItem({
           done={item.done}
         />
         <div className="flex items-center gap-1 opacity-70 transition-opacity duration-150 hover:opacity-100">
+          <button
+            onClick={() => setNotesOpen((v) => !v)}
+            title={t(lang, "itemNotes")}
+            className={`rounded-md p-1.5 transition-colors duration-150 hover:bg-terrace-500/10 hover:text-terrace-600 ${
+              notesOpen || item.notes ? "text-terrace-600" : "text-ink-soft"
+            }`}
+          >
+            <StickyNote size={15} />
+          </button>
           {canAddMore && (
             <button
               onClick={() => fileRef.current?.click()}
@@ -851,6 +869,18 @@ function TaskItem({
               <Plus size={16} />
             </button>
           )}
+        </div>
+      )}
+
+      {notesOpen && (
+        <div className="mt-2">
+          <textarea
+            value={item.notes ?? ""}
+            onChange={(e) => onNotesChange(e.target.value)}
+            placeholder={t(lang, "itemNotesPlaceholder")}
+            rows={2}
+            className="w-full resize-y rounded-lg border border-line bg-basin-2/40 px-2.5 py-1.5 text-xs text-ink-soft outline-none transition-colors duration-150 placeholder:text-ink-soft/50 focus:border-terrace-400"
+          />
         </div>
       )}
 

@@ -93,6 +93,7 @@ class StateController extends Controller
             'checklist' => $goal->checklistItems->map(fn ($item) => [
                 'id' => $item->id,
                 'text' => $item->text,
+                'notes' => $item->notes ?? '',
                 'done' => $item->done,
                 'images' => $item->images ?? [],
                 'startedAt' => $item->started_at?->toIso8601String(),
