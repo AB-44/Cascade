@@ -1,11 +1,13 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useStore } from "../store";
 import { deadlineState } from "./goals";
 import type { Goal } from "../types";
 import { t } from "./i18n";
 import type { Lang } from "./i18n";
+import { loadDismissedNotifs, dismissNotif } from "./storage";
 
 export interface ReminderItem {
+  key: string;
   goal: Goal;
   kind: "overdue" | "today" | "soon" | "reminder" | "break";
   text: string;
@@ -32,6 +34,7 @@ function totalElapsedMs(g: Goal, now: number): number {
 
 export function useReminders() {
   const { goals, updateGoal, lang } = useStore();
+  const [dismissed, setDismissed] = useState<string[]>(() => loadDismissedNotifs());
 
   const items = useMemo<ReminderItem[]>(() => {
     const out: ReminderItem[] = [];
@@ -39,22 +42,27 @@ export function useReminders() {
     for (const g of goals) {
       if (g.archived || g.status === "Completed") continue;
       const ds = deadlineState(g.deadline, g.status);
-      if (ds === "overdue") out.push({ goal: g, kind: "overdue", text: overdueText(lang, g.name) });
-      else if (ds === "today") out.push({ goal: g, kind: "today", text: todayText(lang, g.name) });
-      else if (ds === "soon") out.push({ goal: g, kind: "soon", text: soonText(lang, g.name) });
+      if (ds === "overdue") out.push({ key: `${g.id}:overdue`, goal: g, kind: "overdue", text: overdueText(lang, g.name) });
+      else if (ds === "today") out.push({ key: `${g.id}:today`, goal: g, kind: "today", text: todayText(lang, g.name) });
+      else if (ds === "soon") out.push({ key: `${g.id}:soon`, goal: g, kind: "soon", text: soonText(lang, g.name) });
       if (g.reminder && g.reminderAt && new Date(g.reminderAt).getTime() <= now) {
-        out.push({ goal: g, kind: "reminder", text: reminderPrefix(lang) + g.name });
+        out.push({ key: `${g.id}:reminder:${g.reminderAt}`, goal: g, kind: "reminder", text: reminderPrefix(lang) + g.name });
       }
       if (
         g.startedAt &&
         !g.breakReminderFired &&
         totalElapsedMs(g, now) >= ONE_HOUR_MS
       ) {
-        out.push({ goal: g, kind: "break", text: breakText(lang, g.name) });
+        out.push({ key: `${g.id}:break:${g.startedAt}`, goal: g, kind: "break", text: breakText(lang, g.name) });
       }
     }
-    return out;
-  }, [goals, lang]);
+    return out.filter((it) => !dismissed.includes(it.key));
+  }, [goals, lang, dismissed]);
+
+  const dismiss = (key: string) => {
+    dismissNotif(key);
+    setDismissed((prev) => (prev.includes(key) ? prev : [...prev, key]));
+  };
 
   // fire browser notifications for due reminders not yet fired
   useEffect(() => {
@@ -111,7 +119,7 @@ export function useReminders() {
     return () => clearInterval(interval);
   }, [goals, updateGoal]);
 
-  return items;
+  return { items, dismiss };
 }
 
 export function requestNotificationPermission() {

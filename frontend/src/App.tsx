@@ -28,6 +28,7 @@ import {
   Mail,
   Share2,
   Waves,
+  CalendarClock,
 } from "lucide-react";
 import { StoreProvider, useStore } from "./store";
 import type { Goal } from "./types";
@@ -40,6 +41,7 @@ import LoginScreen from "./components/LoginScreen";
 import GoalForm from "./components/GoalForm";
 import TreeView from "./components/TreeView";
 import RoadmapView from "./components/RoadmapView";
+import DeadlinesView from "./components/DeadlinesView";
 import Dashboard from "./components/Dashboard";
 import TemplatesPanel from "./components/TemplatesPanel";
 import ArchivePanel from "./components/ArchivePanel";
@@ -56,7 +58,7 @@ import { exportPDF, exportPNG, printElement } from "./lib/exporter";
 import { t, tFormat } from "./lib/i18n";
 import type { Lang } from "./lib/i18n";
 
-type View = "tree" | "roadmap" | "dashboard";
+type View = "tree" | "roadmap" | "dashboard" | "deadlines";
 
 function Shell() {
   const { goals, darkMode, setDarkMode, importData, lang, setLang, completeAll, members, projects, syncStatus } = useStore();
@@ -280,6 +282,7 @@ function Shell() {
   const viewTabs: { id: View; icon: typeof GitBranch; key: keyof typeof import("./lib/i18n") extends never ? never : any }[] = [
     { id: "roadmap", icon: Map, key: "roadmap" },
     { id: "tree", icon: GitBranch, key: "tree" },
+    { id: "deadlines", icon: CalendarClock, key: "deadlines" },
   ];
 
   const sidebarItems = [
@@ -542,7 +545,7 @@ function Shell() {
 
           {view !== "dashboard" && (
             <>
-              <div className="relative min-w-[160px] flex-1 sm:flex-none">
+              <div className="relative min-w-[160px] max-w-[220px] flex-1 sm:flex-none">
                 <Search
                   size={16}
                   className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-ink-soft"
@@ -720,6 +723,8 @@ function Shell() {
             <>
               {view === "tree" ? (
                 <TreeView onEdit={openEdit} onAddChild={(p) => openNew(p)} filter={filterFn} />
+              ) : view === "deadlines" ? (
+                <DeadlinesView onEdit={openEdit} filter={filterFn} />
               ) : (
                 <RoadmapView
                   onEdit={openEdit}

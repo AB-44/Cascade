@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, LogOut, Mail, User as UserIcon } from "lucide-react";
-import { getStoredUser, fetchMe, logout, type CurrentUser } from "../lib/api";
+import { getStoredUser, fetchMe, type CurrentUser } from "../lib/api";
 import { t } from "../lib/i18n";
+import { useLogoutFlow } from "../lib/useLogoutFlow";
 import { UserAvatar } from "./ProfilePanel";
 
 export default function UserProfileMenu({
@@ -14,6 +15,7 @@ export default function UserProfileMenu({
   const [user, setUser] = useState<CurrentUser | null>(() => getStoredUser());
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const { requestLogout, modal } = useLogoutFlow(lang);
 
   useEffect(() => {
     fetchMe()
@@ -74,17 +76,19 @@ export default function UserProfileMenu({
           </button>
           <div className="my-1 border-t border-line" />
           <button
-            onClick={async () => {
-              await logout();
-              window.location.reload();
+            onClick={() => {
+              setOpen(false);
+              requestLogout();
             }}
             className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium text-clay transition-colors duration-150 hover:bg-clay/10"
           >
             <LogOut size={15} />
             {t(lang, "logout")}
           </button>
+          
         </div>
       )}
+      {modal}
     </div>
   );
 }

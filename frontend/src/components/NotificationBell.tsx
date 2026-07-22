@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { Bell, AlertTriangle, CalendarClock, BellRing, Coffee } from "lucide-react";
+import { Bell, AlertTriangle, CalendarClock, BellRing, Coffee, X } from "lucide-react";
 import { useReminders, requestNotificationPermission } from "../lib/useReminders";
 import { useStore } from "../store";
 import { t } from "../lib/i18n";
 
 export default function NotificationBell({ onGoto }: { onGoto: (id: string) => void }) {
-  const items = useReminders();
+  const { items, dismiss } = useReminders();
   const { lang } = useStore();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -53,22 +53,39 @@ export default function NotificationBell({ onGoto }: { onGoto: (id: string) => v
               <p className="px-2 py-8 text-center text-sm text-ink-soft">{t(lang, "allCaughtUp")}</p>
             ) : (
               <div className="notif-stack" data-peek={items.length > 1}>
-                {items.slice(0, 3).map((it, i) => (
-                  <button
-                    key={i}
-                    onClick={() => {
-                      onGoto(it.goal.id);
-                      setOpen(false);
-                    }}
-                    style={{ zIndex: 3 - i }}
-                    className="terrace-card notif-stack-card flex w-full items-center gap-3 px-4 py-3 text-start"
-                  >
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-line bg-card">
-                      {icon(it.kind)}
-                    </span>
-                    <span className="min-w-0 text-sm text-ink">{it.text}</span>
-                  </button>
-                ))}
+                {items.slice(0, 3).map((it) => {
+                  const index = items.indexOf(it);
+                  return (
+                    <div
+                      key={it.key}
+                      style={{ zIndex: 3 - index }}
+                      className="terrace-card notif-stack-card group relative flex w-full items-center gap-3 px-4 py-3"
+                    >
+                      <button
+                        onClick={() => {
+                          onGoto(it.goal.id);
+                          setOpen(false);
+                        }}
+                        className="flex min-w-0 flex-1 items-center gap-3 text-start"
+                      >
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-line bg-card">
+                          {icon(it.kind)}
+                        </span>
+                        <span className="min-w-0 text-sm text-ink">{it.text}</span>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          dismiss(it.key);
+                        }}
+                        aria-label={t(lang, "dismissNotification")}
+                        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-ink-soft opacity-0 transition hover:bg-basin-2 hover:text-ink group-hover:opacity-100"
+                      >
+                        <X size={13} />
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             )}
             {count > 3 && (

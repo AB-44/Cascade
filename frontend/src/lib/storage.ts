@@ -7,6 +7,7 @@ const PROJECTS_KEY = "cascade_projects_v1";
 const DARK_KEY = "cascade_dark_v1";
 const LANG_KEY = "cascade_lang_v1";
 const CURRENT_PROJECT_KEY = "cascade_current_project_v1";
+const DISMISSED_NOTIFS_KEY = "cascade_dismissed_notifs_v1";
 
 export function uid(): string {
   return (
@@ -100,6 +101,26 @@ export function saveCurrentProjectId(projectId: string) {
   localStorage.setItem(CURRENT_PROJECT_KEY, projectId);
 }
 
+export function loadDismissedNotifs(): string[] {
+  try {
+    const raw = localStorage.getItem(DISMISSED_NOTIFS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function dismissNotif(key: string) {
+  try {
+    const current = loadDismissedNotifs();
+    if (!current.includes(key)) {
+      localStorage.setItem(DISMISSED_NOTIFS_KEY, JSON.stringify([...current, key]));
+    }
+  } catch {
+    /* noop */
+  }
+}
+
 export function loadMembers(): TeamMember[] {
   try {
     const raw = localStorage.getItem(MEMBERS_KEY);
@@ -129,20 +150,32 @@ export function saveProjects(projects: Project[]) {
 }
 
 /**
- * Downloads a JSON backup of whatever is currently cached locally — but
- * only if there's actually something in it. Runs automatically right
- * before we ever wipe local data (login/register/logout), so nobody loses
- * work again just because it hadn't reached the server yet.
+ * True if there's anything cached locally at all — used to decide whether
+ * a backup before wiping is even worth offering.
  */
-function backupLocalDataIfAny(): void {
+export function hasLocalData(): boolean {
+  return (
+    loadGoals().length > 0 ||
+    loadTemplates().length > 0 ||
+    loadMembers().length > 0 ||
+    loadProjects().length > 0
+  );
+}
+
+/**
+ * Downloads a JSON backup of whatever is currently cached locally — but
+ * only if there's actually something in it. Exported so the UI can offer
+ * this as an explicit, clearly-labeled choice (e.g. before logout) instead
+ * of it happening silently in the background, which is exactly the kind
+ * of unexplained file drop that makes people suspect malware.
+ */
+export function downloadLocalBackup(): void {
   const goals = loadGoals();
   const templates = loadTemplates();
   const members = loadMembers();
   const projects = loadProjects();
 
-  const hasData =
-    goals.length > 0 || templates.length > 0 || members.length > 0 || projects.length > 0;
-  if (!hasData || typeof document === "undefined") return;
+  if (!hasLocalData() || typeof document === "undefined") return;
 
   const payload = {
     goals,
@@ -150,14 +183,14 @@ function backupLocalDataIfAny(): void {
     members,
     projects,
     backedUpAt: new Date().toISOString(),
-    note: "نسخة احتياطية تلقائية قبل تسجيل دخول/خروج جديد",
+    note: "نسخة احتياطية من بياناتك — تقدر ترجعها لاحقًا من زر الاستيراد داخل التطبيق.",
   };
 
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `cascade-auto-backup-${Date.now()}.json`;
+  a.download = `cascade-backup-${new Date().toISOString().slice(0, 10)}.json`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -173,11 +206,14 @@ function backupLocalDataIfAny(): void {
  * already belong to someone else, which the database rejects (duplicate
  * id) and silently leaves you stuck in "offline" mode.
  *
- * Always backs up first (see backupLocalDataIfAny) so clearing never
- * means losing data that hadn't made it to the server yet.
+ * By default also downloads a backup first (see downloadLocalBackup) so
+ * clearing never silently means losing data that hadn't made it to the
+ * server yet. Pass `skipAutoBackup: true` when the caller has already
+ * handled the backup decision explicitly (e.g. the logout confirmation
+ * flow in UserProfileMenu) — otherwise the file would download twice.
  */
-export function clearAllLocalData() {
-  backupLocalDataIfAny();
+export function clearAllLocalData(opts?: { skipAutoBackup?: boolean }) {
+  if (!opts?.skipAutoBackup) downloadLocalBackup();
   localStorage.removeItem(GOALS_KEY);
   localStorage.removeItem(TEMPLATES_KEY);
   localStorage.removeItem(MEMBERS_KEY);

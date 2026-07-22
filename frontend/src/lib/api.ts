@@ -142,13 +142,13 @@ export async function register(name: string, email: string, password: string): P
   clearAllLocalData();
 }
 
-export async function logout(): Promise<void> {
+export async function logout(opts?: { skipAutoBackup?: boolean }): Promise<void> {
   try {
     await request("/logout", { method: "POST" });
   } finally {
     setToken(null);
     setStoredUser(null);
-    clearAllLocalData();
+    clearAllLocalData(opts);
   }
 }
 

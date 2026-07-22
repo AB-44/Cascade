@@ -21,10 +21,10 @@ import {
   getStoredUser,
   updateProfile,
   updatePassword,
-  logout,
   ApiError,
   type CurrentUser,
 } from "../lib/api";
+import { useLogoutFlow } from "../lib/useLogoutFlow";
 
 export const AVATAR_COLORS = [
   "#1F6E5C",
@@ -73,6 +73,7 @@ export function UserAvatar({
 export default function ProfilePanel({ onClose }: { onClose: () => void }) {
   const { closing, requestClose } = useClosing(onClose);
   const { goals, lang } = useStore();
+  const { requestLogout, modal: logoutModal } = useLogoutFlow(lang);
   const [user, setUser] = useState<CurrentUser | null>(() => getStoredUser());
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -389,10 +390,7 @@ export default function ProfilePanel({ onClose }: { onClose: () => void }) {
               <p className="mt-0.5 text-xs text-ink-soft">{t(lang, "logoutDesc")}</p>
             </div>
             <button
-              onClick={async () => {
-                await logout();
-                window.location.reload();
-              }}
+              onClick={requestLogout}
               className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-clay px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition-colors duration-150 hover:opacity-90"
             >
               <LogOut size={15} />
@@ -401,6 +399,7 @@ export default function ProfilePanel({ onClose }: { onClose: () => void }) {
           </section>
         </div>
       </div>
+      {logoutModal}
     </div>
   );
 }
