@@ -47,6 +47,7 @@ class GoalController extends Controller
                         'auto_progress' => $g['autoProgress'],
                         'status' => $g['status'],
                         'deadline' => $g['deadline'] ?? null,
+                        'start_date' => $g['startDate'] ?? null,
                         'reminder' => $g['reminder'] ?? false,
                         'reminder_at' => $g['reminderAt'] ?? null,
                         'reminder_fired' => $g['reminderFired'] ?? false,

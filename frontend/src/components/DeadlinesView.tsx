@@ -22,8 +22,12 @@ export default function DeadlinesView({
   const { goals, members, lang } = useStore();
 
   const rows = goals
-    .filter((g) => !g.archived && g.deadline && filter(g))
-    .sort((a, b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime());
+    .filter((g) => !g.archived && (g.deadline || g.startDate) && filter(g))
+    .sort((a, b) => {
+      const aDate = a.deadline ?? a.startDate!;
+      const bDate = b.deadline ?? b.startDate!;
+      return new Date(aDate).getTime() - new Date(bDate).getTime();
+    });
 
   const statusLabel = (s: Goal["status"]) => {
     if (s === "Completed") return t(lang, "completed");
@@ -52,6 +56,7 @@ export default function DeadlinesView({
         <thead>
           <tr className="border-b border-line text-start text-xs text-ink-soft">
             <th className="px-4 py-3 text-start font-medium">{t(lang, "name")}</th>
+            <th className="px-4 py-3 text-start font-medium">{t(lang, "startDate")}</th>
             <th className="px-4 py-3 text-start font-medium">{t(lang, "deadline")}</th>
             <th className="px-4 py-3 text-start font-medium">{t(lang, "status")}</th>
             <th className="px-4 py-3 text-start font-medium">{t(lang, "assignTo")}</th>
@@ -76,6 +81,14 @@ export default function DeadlinesView({
                       {g.name}
                     </span>
                   </div>
+                </td>
+                <td className="px-4 py-3 text-ink-soft">
+                  {g.startDate
+                    ? new Date(g.startDate).toLocaleDateString(lang === "ar" ? "ar-EG" : undefined, {
+                        month: "short",
+                        day: "numeric",
+                      })
+                    : <span className="text-ink-soft/50">—</span>}
                 </td>
                 <td className="px-4 py-3">
                   <DeadlineBadge goal={g} />

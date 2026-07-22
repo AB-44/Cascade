@@ -273,7 +273,7 @@ class SharedProjectController extends Controller
             'autoProgress' => $goal->auto_progress,
             'status' => $goal->status,
             'deadline' => $goal->deadline?->toDateString(),
-            'tag' => $goal->tag ?? '',
+            'startDate' => $goal->start_date?->toDateString(),
             'color' => $goal->color ?? '',
             'startedAt' => $goal->started_at?->toIso8601String(),
             'accumulatedMs' => (int) $goal->accumulated_ms,

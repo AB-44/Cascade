@@ -33,6 +33,7 @@ export interface Goal {
   progress: number; // 0-100
   autoProgress: boolean; // if true, calculated from children/checklist
   deadline: string | null; // ISO date
+  startDate: string | null; // ISO date - planned/scheduled start (not the timer's startedAt)
   reminder: boolean;
   reminderAt: string | null; // ISO datetime
   reminderFired?: boolean;

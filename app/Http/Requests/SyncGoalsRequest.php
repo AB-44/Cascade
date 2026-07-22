@@ -28,6 +28,7 @@ class SyncGoalsRequest extends FormRequest
             'goals.*.autoProgress' => ['required', 'boolean'],
             'goals.*.status' => ['required', 'in:Not Started,In Progress,Completed'],
             'goals.*.deadline' => ['nullable', 'date'],
+            'goals.*.startDate' => ['nullable', 'date'],
             'goals.*.reminder' => ['boolean'],
             'goals.*.reminderAt' => ['nullable', 'date'],
             'goals.*.reminderFired' => ['boolean'],

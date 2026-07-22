@@ -207,6 +207,7 @@ export interface AssignedGoal {
   autoProgress: boolean;
   status: Status;
   deadline: string | null;
+  startDate: string | null;
   tag: string;
   color: string;
   startedAt: string | null;
@@ -338,6 +339,7 @@ export interface SharedProjectGoal {
   autoProgress: boolean;
   status: Status;
   deadline: string | null;
+  startDate: string | null;
   tag: string;
   color: string;
   startedAt: string | null;

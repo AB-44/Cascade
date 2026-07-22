@@ -209,7 +209,7 @@ export default function GoalForm({
               <p className="mt-1 text-[11px] text-ink-soft/70">{t(lang, "estimatedTimeHint")}</p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <div>
                 <label className={labelCls}>{t(lang, "priority")}</label>
                 <Select
@@ -222,6 +222,15 @@ export default function GoalForm({
                     { value: "Medium", label: t(lang, "medium") },
                     { value: "Low", label: t(lang, "low") },
                   ]}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>{t(lang, "startDate")}</label>
+                <input
+                  type="date"
+                  className={inputCls}
+                  value={form.startDate ? form.startDate.slice(0, 10) : ""}
+                  onChange={(e) => set("startDate", e.target.value || null)}
                 />
               </div>
               <div>

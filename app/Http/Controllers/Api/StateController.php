@@ -71,6 +71,7 @@ class StateController extends Controller
             'progress' => $goal->progress,
             'autoProgress' => $goal->auto_progress,
             'deadline' => $goal->deadline?->toDateString(),
+            'startDate' => $goal->start_date?->toDateString(),
             'reminder' => $goal->reminder,
             'reminderAt' => $goal->reminder_at?->toIso8601String(),
             'reminderFired' => $goal->reminder_fired,

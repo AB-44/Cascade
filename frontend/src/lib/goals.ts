@@ -121,6 +121,7 @@ export function newGoal(partial: Partial<Goal> = {}): Goal {
     progress: 0,
     autoProgress: false,
     deadline: null,
+    startDate: null,
     reminder: false,
     reminderAt: null,
     reminderFired: false,

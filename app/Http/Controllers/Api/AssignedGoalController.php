@@ -158,6 +158,7 @@ class AssignedGoalController extends Controller
             'autoProgress' => $goal->auto_progress,
             'status' => $goal->status,
             'deadline' => $goal->deadline?->toDateString(),
+            'startDate' => $goal->start_date?->toDateString(),
             'tag' => $goal->tag ?? '',
             'color' => $goal->color ?? '',
             'startedAt' => $goal->started_at?->toIso8601String(),
