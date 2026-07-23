@@ -23,13 +23,13 @@ class ProjectController extends Controller
         $user = $request->user();
 
         $projects = $user->allProjects()
-            ->with('user:id,name')
+            ->with(['user:id,name,avatar,avatar_color', 'collaborators:id,name,avatar,avatar_color'])
             ->withCount(['collaborators as member_count'])
             ->get();
 
         $goalStats = Goal::whereIn('project_id', $projects->pluck('id'))
             ->where('archived', false)
-            ->selectRaw('project_id, count(*) as total, sum(case when status = ? then 1 else 0 end) as completed', ['Completed'])
+            ->selectRaw('project_id, count(*) as total, sum(case when status = ? then 1 else 0 end) as completed, max(deadline) as latest_deadline', ['Completed'])
             ->groupBy('project_id')
             ->get()
             ->keyBy('project_id');
@@ -40,6 +40,26 @@ class ProjectController extends Controller
                 $total = (int) ($stats->total ?? 0);
                 $completed = (int) ($stats->completed ?? 0);
 
+                // Derived, not stored: a project with no tasks yet reads as
+                // an "idea", one that's fully done reads as "completed",
+                // anything in between is simply "in progress". This avoids
+                // inventing a status field/value the owner never set.
+                $status = $total === 0 ? 'idea' : ($completed === $total ? 'completed' : 'in_progress');
+
+                // Owner first, then up to 4 collaborators — enough for a
+                // small avatar stack without over-fetching.
+                $avatars = collect([$project->user])
+                    ->merge($project->collaborators)
+                    ->filter()
+                    ->unique('id')
+                    ->take(5)
+                    ->map(fn ($u) => [
+                        'name' => $u->name,
+                        'avatar' => $u->avatar,
+                        'color' => $u->avatar_color,
+                    ])
+                    ->values();
+
                 return [
                     'id' => $project->id,
                     'name' => $project->name,
@@ -48,9 +68,12 @@ class ProjectController extends Controller
                     'role' => $project->pivot->role,
                     'ownerName' => $project->user?->name ?? '',
                     'memberCount' => $project->member_count,
+                    'memberAvatars' => $avatars,
                     'goalCount' => $total,
                     'completedCount' => $completed,
                     'progressPct' => $total > 0 ? (int) round($completed / $total * 100) : 0,
+                    'status' => $status,
+                    'latestDeadline' => $stats->latest_deadline ?? null,
                     'createdAt' => $project->created_at?->toIso8601String(),
                 ];
             })->values(),

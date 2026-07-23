@@ -68,6 +68,8 @@ interface StoreCtx {
   addMember: (m: Omit<TeamMember, "id" | "createdAt">) => TeamMember;
   updateMember: (id: string, patch: Partial<TeamMember>) => void;
   deleteMember: (id: string) => void;
+  /** Re-fetches the member list from the server (used after accepting invitations). */
+  refreshMembersFromServer: () => Promise<void>;
   // projects
   projects: Project[];
   addProject: (p: Omit<Project, "id" | "createdAt">) => Project;
@@ -461,6 +463,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [members, flushMembersNow],
   );
 
+  /**
+   * Re-fetches the canonical member list from the server and reconciles it
+   * with the local store. Called after a project invitation is accepted so
+   * the newly-added TeamMember (created server-side) appears immediately in
+   * GoalForm assignees and ProjectForm member-pickers without a page reload.
+   */
+  const refreshMembersFromServer = useCallback(async () => {
+    try {
+      const remote = await fetchState();
+      if (remote.members.length > 0) {
+        setMembers(remote.members);
+      }
+    } catch {
+      // silent: the next periodic sync will catch it
+    }
+  }, []);
+
   const addProject = useCallback(
     (p: Omit<Project, "id" | "createdAt">) => {
       const newProject: Project = {
@@ -530,6 +549,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addMember,
       updateMember,
       deleteMember,
+      refreshMembersFromServer,
       projects,
       addProject,
       updateProject,
@@ -559,6 +579,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addMember,
       updateMember,
       deleteMember,
+      refreshMembersFromServer,
       projects,
       addProject,
       updateProject,

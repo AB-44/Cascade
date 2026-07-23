@@ -402,6 +402,12 @@ export function fetchSharedProjects(): Promise<{ projects: SharedProject[] }> {
 
 /** A row from the unified project directory — combines this user's own
  *  projects and every project they collaborate on, each tagged with role. */
+export interface MyProjectMemberAvatar {
+  name: string;
+  avatar: string | null;
+  color: string | null;
+}
+
 export interface MyProject {
   id: string;
   name: string;
@@ -410,9 +416,12 @@ export interface MyProject {
   role: "owner" | "collaborator" | "guest";
   ownerName: string;
   memberCount: number;
+  memberAvatars: MyProjectMemberAvatar[];
   goalCount: number;
   completedCount: number;
   progressPct: number;
+  status: "idea" | "in_progress" | "completed";
+  latestDeadline: string | null;
   createdAt: string;
 }
 

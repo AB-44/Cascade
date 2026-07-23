@@ -62,7 +62,7 @@ import type { Lang } from "./lib/i18n";
 type View = "tree" | "roadmap" | "dashboard" | "deadlines" | "team" | "assigned" | "projects";
 
 function Shell() {
-  const { goals, darkMode, setDarkMode, importData, lang, setLang, completeAll, members, projects, syncStatus } = useStore();
+  const { goals, darkMode, setDarkMode, importData, lang, setLang, completeAll, members, projects, syncStatus, refreshMembersFromServer } = useStore();
   const [view, setView] = useState<View>("roadmap");
   const [formGoal, setFormGoal] = useState<Goal | null>(null);
   const [formParent, setFormParent] = useState<string | null>(null);
@@ -727,6 +727,7 @@ function Shell() {
             <ProjectsPage
               refreshKey={projectsRefreshKey}
               onManage={() => setShowProjects(true)}
+              onNewProject={() => setShowProjects(true)}
               onOpenProject={(projectId) => {
                 setCurrentProjectId(projectId);
                 setView("roadmap");
@@ -817,7 +818,14 @@ function Shell() {
               .then((res) => setPendingInvitationsCount(res.invitations.length))
               .catch(() => { });
           }}
-          onAccepted={loadSharedProjects}
+          onAccepted={() => {
+            loadSharedProjects();
+            // A new TeamMember was created server-side for the project owner
+            // when this invitation was accepted — re-fetch the member list so
+            // the new collaborator shows up immediately in GoalForm and
+            // ProjectForm without needing a full page reload.
+            refreshMembersFromServer();
+          }}
         />
       )}
       {showSharedProjects && <SharedProjectsPanel onClose={() => setShowSharedProjects(false)} />}

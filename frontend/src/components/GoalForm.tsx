@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Trash2, X, BookmarkPlus, FileStack, UserCircle2, Check, Target } from "lucide-react";
 import { MemberAvatar } from "./TeamPanel";
-import { Select, ProgressBar } from "./ui";
+import { Select } from "./ui";
 import type { Goal, Priority } from "../types";
 import { useStore } from "../store";
 import { allAssignees, allTags, getDescendants, newGoal } from "../lib/goals";
 import { uid } from "../lib/storage";
 import { t } from "../lib/i18n";
 import { cn } from "../utils/cn";
+import { fetchProjectInvitations } from "../lib/api";
 
 interface Props {
   goal: Goal | null;
@@ -32,10 +33,16 @@ export default function GoalForm({
   const { goals, addGoal, updateGoal, saveAsTemplate, templates, createFromTemplate, lang, members, projects } =
     useStore();
   const isEdit = !!goal;
+  // Full fields (priority, checklist) show when editing an existing goal,
+  // or when adding a sub-goal/task under an existing one (the "+" on a
+  // stage/task card) — those are real work items from the start. Only the
+  // plain "New Goal" button (no parent) gets the stripped-down container
+  // form; priority/checklist for THAT one get filled in later via edit.
+  const showFullFields = isEdit || !!defaultParentId;
   const defaultOwnerMember = members.find((m) => m.id === defaultRoadmapOwnerId);
   const [form, setForm] = useState<Goal>(() =>
     goal
-      ? { ...goal }
+      ? { ...goal, autoProgress: true }
       : newGoal({
           parentId: defaultParentId,
           roadmapOwnerId: defaultRoadmapOwnerId,
@@ -45,6 +52,37 @@ export default function GoalForm({
   );
   const [newCheck, setNewCheck] = useState("");
   const [templateMode, setTemplateMode] = useState(false);
+
+  // The manual per-project `memberIds` tag list only covers regular
+  // teammates the owner deliberately checked in the old project-editor —
+  // it's never touched when someone accepts a project invite, so relying
+  // on it alone leaves real collaborators unassignable until the owner
+  // manually re-adds them. Fetching the project's actual accepted
+  // collaborators (by email) closes that gap without needing to touch
+  // `memberIds` at all.
+  const [realCollaboratorEmails, setRealCollaboratorEmails] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!form.projectId) {
+      setRealCollaboratorEmails(new Set());
+      return;
+    }
+    let cancelled = false;
+    fetchProjectInvitations(form.projectId)
+      .then((res) => {
+        if (!cancelled) {
+          setRealCollaboratorEmails(new Set(res.collaborators.map((c) => c.email.toLowerCase())));
+        }
+      })
+      .catch(() => {
+        // Not the project owner, or request failed — fall back to the
+        // manual memberIds list only, silently.
+        if (!cancelled) setRealCollaboratorEmails(new Set());
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [form.projectId]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -83,8 +121,9 @@ export default function GoalForm({
 
   const handleSubmit = () => {
     if (!form.name.trim()) return;
-    if (isEdit) updateGoal(form.id, form);
-    else addGoal(form);
+    const toSave = { ...form, autoProgress: true };
+    if (isEdit) updateGoal(toSave.id, toSave);
+    else addGoal(toSave);
     onClose();
   };
 
@@ -209,21 +248,23 @@ export default function GoalForm({
               <p className="mt-1 text-[11px] text-ink-soft/70">{t(lang, "estimatedTimeHint")}</p>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <label className={labelCls}>{t(lang, "priority")}</label>
-                <Select
-                  className={inputCls}
-                  fullWidth
-                  value={form.priority}
-                  onChange={(v) => set("priority", v as Priority)}
-                  options={[
-                    { value: "High", label: t(lang, "high") },
-                    { value: "Medium", label: t(lang, "medium") },
-                    { value: "Low", label: t(lang, "low") },
-                  ]}
-                />
-              </div>
+            <div className={showFullFields ? "grid grid-cols-3 gap-3" : "grid grid-cols-2 gap-3"}>
+              {showFullFields && (
+                <div>
+                  <label className={labelCls}>{t(lang, "priority")}</label>
+                  <Select
+                    className={inputCls}
+                    fullWidth
+                    value={form.priority}
+                    onChange={(v) => set("priority", v as Priority)}
+                    options={[
+                      { value: "High", label: t(lang, "high") },
+                      { value: "Medium", label: t(lang, "medium") },
+                      { value: "Low", label: t(lang, "low") },
+                    ]}
+                  />
+                </div>
+              )}
               <div>
                 <label className={labelCls}>{t(lang, "startDate")}</label>
                 <input
@@ -265,7 +306,9 @@ export default function GoalForm({
                   {members.map((m) => {
                     const active = form.assignedTo === m.name;
                     const currentProject = projects.find((p) => p.id === form.projectId);
-                    const isProjectMember = currentProject ? currentProject.memberIds.includes(m.id) : true;
+                    const isManualProjectMember = currentProject ? currentProject.memberIds.includes(m.id) : true;
+                    const isRealCollaborator = !!m.email && realCollaboratorEmails.has(m.email.toLowerCase());
+                    const isProjectMember = isManualProjectMember || isRealCollaborator;
                     if (form.projectId && !isProjectMember && !active) return null;
 
                     return (
@@ -444,44 +487,8 @@ export default function GoalForm({
             </div>
           </div>
 
-          {/* Progress */}
-          <div className="rounded-xl border border-line bg-basin-2/40 p-4">
-            <label className="flex items-center gap-2 text-sm font-medium text-ink cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={form.autoProgress}
-                onChange={(e) => set("autoProgress", e.target.checked)}
-                className="h-4 w-4 accent-terrace-500"
-              />
-              {t(lang, "autoProgress")}
-            </label>
-            {!form.autoProgress && (
-              <div className="mt-3 animate-slide-down">
-                <div className="mb-2 flex justify-between text-xs text-ink-soft">
-                  <span>{t(lang, "progress")}</span>
-                  <span className="font-mono-num font-semibold text-ink">{form.progress}%</span>
-                </div>
-                <ProgressBar value={form.progress} color={form.color} className="mb-2" />
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={form.progress}
-                  onChange={(e) => {
-                    const p = Number(e.target.value);
-                    set("progress", p);
-                    set(
-                      "status",
-                      p >= 100 ? "Completed" : p > 0 ? "In Progress" : "Not Started",
-                    );
-                  }}
-                  className="w-full accent-terrace-600"
-                />
-              </div>
-            )}
-          </div>
-
           {/* Checklist */}
+          {showFullFields && (
           <div>
             <label className={labelCls}>{t(lang, "checklist")}</label>
             <div className="space-y-2">
@@ -539,6 +546,7 @@ export default function GoalForm({
               </div>
             </div>
           </div>
+          )}
 
           {/* Depends on */}
           <div>

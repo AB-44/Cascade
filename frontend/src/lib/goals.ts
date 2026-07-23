@@ -119,7 +119,7 @@ export function newGoal(partial: Partial<Goal> = {}): Goal {
     assignedTo: "",
     priority: "Medium",
     progress: 0,
-    autoProgress: false,
+    autoProgress: true,
     deadline: null,
     startDate: null,
     reminder: false,
