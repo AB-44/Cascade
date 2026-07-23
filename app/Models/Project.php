@@ -29,9 +29,19 @@ class Project extends Model
         return $this->hasMany(ProjectInvitation::class);
     }
 
-    /** Users (other than the owner) who accepted an invite to this project. */
+    /** Everyone with access to this project, owner included — tagged via
+     *  pivot `role`. Powers the unified "my projects" directory. */
     public function collaborators(): BelongsToMany
     {
-        return $this->belongsToMany(User::class, 'project_collaborators')->withTimestamps();
+        return $this->belongsToMany(User::class, 'project_collaborators')->withPivot('role')->withTimestamps();
+    }
+
+    /** Just the people the owner invited in — never includes the owner
+     *  themselves. This is what the old "collaborators" meant; kept
+     *  separate so the owner's own project never shows up in their own
+     *  "who's on this project" list. */
+    public function externalCollaborators(): BelongsToMany
+    {
+        return $this->collaborators()->wherePivot('role', '!=', 'owner');
     }
 }

@@ -10,7 +10,11 @@ class TeamMember extends Model
     public $incrementing = false;
     protected $keyType = 'string';
 
-    protected $fillable = ['id', 'user_id', 'linked_user_id', 'name', 'role', 'email', 'avatar', 'color'];
+    protected $fillable = ['id', 'user_id', 'linked_user_id', 'joined_via_project', 'name', 'role', 'email', 'avatar', 'color'];
+
+    protected $casts = [
+        'joined_via_project' => 'boolean',
+    ];
 
     /**
      * The account that owns/created this team-member entry.

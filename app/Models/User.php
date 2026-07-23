@@ -51,9 +51,23 @@ class User extends Authenticatable
         return $this->hasMany(GoalTemplate::class);
     }
 
-    /** Projects owned by someone else that this user was invited into and accepted. */
+    /** Projects owned by someone else that this user was invited into and
+     *  accepted — excludes my own projects even though they now share the
+     *  same underlying pivot table (see role != owner). */
     public function projectCollaborations()
     {
-        return $this->belongsToMany(Project::class, 'project_collaborators')->withTimestamps();
+        return $this->belongsToMany(Project::class, 'project_collaborators')
+            ->withPivot('role')
+            ->wherePivot('role', '!=', 'owner')
+            ->withTimestamps();
+    }
+
+    /** Every project I have any access to (own + collaborations), each
+     *  tagged with my `role` — powers the unified project directory page. */
+    public function allProjects()
+    {
+        return $this->belongsToMany(Project::class, 'project_collaborators')
+            ->withPivot('role')
+            ->withTimestamps();
     }
 }

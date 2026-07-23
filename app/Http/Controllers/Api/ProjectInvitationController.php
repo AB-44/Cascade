@@ -44,7 +44,7 @@ class ProjectInvitationController extends Controller
             ]);
         }
 
-        $alreadyCollaborator = $projectModel->collaborators()->where('users.id', $invitee->id)->exists();
+        $alreadyCollaborator = $projectModel->externalCollaborators()->where('users.id', $invitee->id)->exists();
         if ($alreadyCollaborator) {
             throw ValidationException::withMessages(['email' => ['هذا الشخص عضو بالمشروع أصلاً.']]);
         }
@@ -80,7 +80,7 @@ class ProjectInvitationController extends Controller
         }
 
         return response()->json([
-            'collaborators' => $projectModel->collaborators()->get(['users.id', 'users.name', 'users.email']),
+            'collaborators' => $projectModel->externalCollaborators()->get(['users.id', 'users.name', 'users.email']),
             'invitations' => $projectModel->invitations()
                 ->where('status', 'pending')
                 ->get()
@@ -118,7 +118,7 @@ class ProjectInvitationController extends Controller
         $collaborator = $request->user();
         $owner = $invitationModel->project->user;
 
-        $invitationModel->project->collaborators()->syncWithoutDetaching([$collaborator->id]);
+        $invitationModel->project->collaborators()->syncWithoutDetaching([$collaborator->id => ['role' => 'collaborator']]);
         $invitationModel->update(['status' => 'accepted']);
 
         // So the owner can assign goals to this person: give them a
@@ -133,6 +133,7 @@ class ProjectInvitationController extends Controller
                 'avatar' => null,
                 'color' => '#6366f1',
                 'linked_user_id' => $collaborator->id,
+                'joined_via_project' => true,
             ]
         );
 
@@ -159,7 +160,7 @@ class ProjectInvitationController extends Controller
             throw new NotFoundHttpException('Project not found.');
         }
 
-        $projectModel->collaborators()->detach($userId);
+        $projectModel->externalCollaborators()->detach($userId);
 
         $target = User::find($userId);
         if ($target) {

@@ -216,6 +216,9 @@ export interface AssignedGoal {
   ownerName: string;
   projectName: string | null;
   projectColor: string | null;
+  stageId: string | null;
+  stageName: string | null;
+  availableStages: { id: string; name: string }[];
   locked: boolean;
   createdAt: string;
   updatedAt: string;
@@ -233,6 +236,7 @@ export interface AssignedGoalPatch {
   startedAt?: string | null;
   accumulatedMs?: number;
   timerPaused?: boolean;
+  moveToStageId?: string | null;
 }
 
 export function updateAssignedGoal(goalId: string, patch: AssignedGoalPatch): Promise<void> {
@@ -394,6 +398,26 @@ export function isSharedStageLocked(project: SharedProject, stage: SharedProject
 
 export function fetchSharedProjects(): Promise<{ projects: SharedProject[] }> {
   return request("/shared-projects");
+}
+
+/** A row from the unified project directory — combines this user's own
+ *  projects and every project they collaborate on, each tagged with role. */
+export interface MyProject {
+  id: string;
+  name: string;
+  description: string;
+  color: string;
+  role: "owner" | "collaborator" | "guest";
+  ownerName: string;
+  memberCount: number;
+  goalCount: number;
+  completedCount: number;
+  progressPct: number;
+  createdAt: string;
+}
+
+export function fetchMyProjects(): Promise<{ projects: MyProject[] }> {
+  return request("/my-projects");
 }
 
 export function updateSharedGoal(

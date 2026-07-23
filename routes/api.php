@@ -25,6 +25,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/goals', [GoalController::class, 'sync']);
     Route::put('/team-members', [TeamMemberController::class, 'sync']);
     Route::put('/projects', [ProjectController::class, 'sync']);
+    Route::get('/my-projects', [ProjectController::class, 'myProjects']);
     Route::put('/templates', [TemplateController::class, 'sync']);
 
     // Tasks assigned to me by someone else

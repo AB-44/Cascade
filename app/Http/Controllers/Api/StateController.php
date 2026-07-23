@@ -41,6 +41,7 @@ class StateController extends Controller
                     'linkedAvatar' => $m->linkedUser?->avatar,
                     'linkedAvatarColor' => $m->linkedUser?->avatar_color,
                     'hasAccount' => $m->linked_user_id !== null,
+                    'joinedViaProject' => $m->joined_via_project,
                     'createdAt' => $m->created_at?->toIso8601String(),
                 ]),
             'projects' => $user->projects()->orderBy('created_at')->get()

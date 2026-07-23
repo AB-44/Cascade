@@ -58,6 +58,14 @@ class TeamMemberController extends Controller
 
                 $targetId = $existingId ?? $m['id'];
 
+                // joined_via_project is server-controlled — it's set only by
+                // the accept-invitation flow, never by the client's sync
+                // payload. Preserve whatever value already exists for this
+                // row instead of letting a client sync silently reset it.
+                $existingFlag = $targetId
+                    ? TeamMember::where('id', $targetId)->where('user_id', $user->id)->value('joined_via_project')
+                    : null;
+
                 TeamMember::updateOrCreate(
                     ['id' => $targetId, 'user_id' => $user->id],
                     [
@@ -67,6 +75,7 @@ class TeamMemberController extends Controller
                         'avatar' => $m['avatar'] ?? null,
                         'color' => $m['color'] ?? '',
                         'linked_user_id' => $linkedUserId,
+                        'joined_via_project' => (bool) $existingFlag,
                     ]
                 );
             }
@@ -86,6 +95,7 @@ class TeamMemberController extends Controller
                 'linkedAvatar' => $m->linkedUser?->avatar,
                 'linkedAvatarColor' => $m->linkedUser?->avatar_color,
                 'hasAccount' => $m->linked_user_id !== null,
+                'joinedViaProject' => $m->joined_via_project,
                 'createdAt' => $m->created_at?->toIso8601String(),
             ]);
 

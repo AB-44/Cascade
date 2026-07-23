@@ -92,6 +92,11 @@ export interface TeamMember {
   linkedAvatarColor?: string | null;
   /** True once this member's email matches a registered Cascade account. */
   hasAccount?: boolean;
+  /** True if this row was auto-created because the person accepted an
+   *  invite to one of your projects, rather than being someone you added
+   *  yourself as a regular teammate. Server-controlled — the client can't
+   *  set or change this. */
+  joinedViaProject?: boolean;
 }
 
 export interface Project {

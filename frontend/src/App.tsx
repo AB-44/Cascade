@@ -48,7 +48,8 @@ import ArchivePanel from "./components/ArchivePanel";
 import NotificationBell from "./components/NotificationBell";
 import TeamPanel from "./components/TeamPanel";
 import ProjectsPanel from "./components/ProjectsPanel";
-import AssignedToMePanel from "./components/AssignedToMePanel";
+import ProjectsPage from "./components/ProjectsPage";
+import AssignedToMeView from "./components/AssignedToMeView";
 import InvitationsPanel from "./components/InvitationsPanel";
 import SharedProjectsPanel from "./components/SharedProjectsPanel";
 import SharedProjectRoadmap from "./components/SharedProjectRoadmap";
@@ -58,7 +59,7 @@ import { exportPDF, exportPNG, printElement } from "./lib/exporter";
 import { t, tFormat } from "./lib/i18n";
 import type { Lang } from "./lib/i18n";
 
-type View = "tree" | "roadmap" | "dashboard" | "deadlines";
+type View = "tree" | "roadmap" | "dashboard" | "deadlines" | "team" | "assigned" | "projects";
 
 function Shell() {
   const { goals, darkMode, setDarkMode, importData, lang, setLang, completeAll, members, projects, syncStatus } = useStore();
@@ -69,9 +70,8 @@ function Shell() {
   const [showTemplates, setShowTemplates] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showArchive, setShowArchive] = useState(false);
-  const [showTeam, setShowTeam] = useState(false);
   const [showProjects, setShowProjects] = useState(false);
-  const [showAssignedToMe, setShowAssignedToMe] = useState(false);
+  const [projectsRefreshKey, setProjectsRefreshKey] = useState(0);
   const [showInvitations, setShowInvitations] = useState(false);
   const [showSharedProjects, setShowSharedProjects] = useState(false);
   const [pendingInvitationsCount, setPendingInvitationsCount] = useState(0);
@@ -294,18 +294,25 @@ function Shell() {
       onClick: () => setView("dashboard"),
     },
     {
+      id: "assigned",
+      icon: Inbox,
+      label: t(lang, "assignedToMe"),
+      active: !isSharedView && view === "assigned",
+      onClick: () => setView("assigned"),
+    },
+    {
       id: "team",
       icon: Users,
       label: t(lang, "teamMembers"),
-      active: showTeam,
-      onClick: () => setShowTeam(true),
+      active: !isSharedView && view === "team",
+      onClick: () => setView("team"),
     },
     {
       id: "projects",
       icon: FolderDot,
       label: t(lang, "projects"),
-      active: showProjects,
-      onClick: () => setShowProjects(true),
+      active: !isSharedView && view === "projects",
+      onClick: () => setView("projects"),
     },
     {
       id: "archive",
@@ -341,7 +348,7 @@ function Shell() {
 
           <div className="flex items-center gap-1.5">
             {/* Complete All */}
-            {incompleteCount > 0 && view !== "dashboard" && (
+            {incompleteCount > 0 && view !== "dashboard" && view !== "assigned" && (
               <button
                 onClick={handleCompleteAll}
                 title={t(lang, "completeAll")}
@@ -371,13 +378,6 @@ function Shell() {
               className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-ink-soft hover:bg-terrace-50"
             >
               <Share2 size={19} />
-            </button>
-            <button
-              onClick={() => setShowAssignedToMe(true)}
-              title="المهام المسندة لي"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-ink-soft hover:bg-terrace-50"
-            >
-              <Inbox size={19} />
             </button>
             <span
               title={
@@ -458,6 +458,7 @@ function Shell() {
       </header>
 
       {/* Toolbar */}
+      {view !== "assigned" && (
       <div className="no-print mx-auto max-w-[1700px] px-4 pt-5">
         <div className="flex flex-wrap items-center gap-2">
           {/* view switcher */}
@@ -695,14 +696,17 @@ function Shell() {
           </div>
         )}
       </div>
+      )}
 
       {/* Main content */}
       <main className="mx-auto max-w-[1700px] px-4 py-6">
+        {view !== "assigned" && view !== "projects" && (
         <div className="no-print mb-4 flex flex-wrap items-center gap-4 text-sm font-semibold text-ink-soft">
           <span className="flex items-center gap-1.5"><FolderDot size={16} className="text-terrace-500" /> {currentProjectLabel}</span>
           <span className="text-line">|</span>
           <span className="flex items-center gap-1.5"><Map size={16} className="text-ink-soft" /> {currentRoadmapLabel}</span>
         </div>
+        )}
         <div ref={captureRef} className="print-area">
           {isSharedView ? (
             activeSharedProject ? (
@@ -717,6 +721,29 @@ function Shell() {
             )
           ) : view === "dashboard" ? (
             <Dashboard roadmapOwnerId={roadmapOwnerId} currentProjectId={currentProjectId} />
+          ) : view === "assigned" ? (
+            <AssignedToMeView />
+          ) : view === "projects" ? (
+            <ProjectsPage
+              refreshKey={projectsRefreshKey}
+              onManage={() => setShowProjects(true)}
+              onOpenProject={(projectId) => {
+                setCurrentProjectId(projectId);
+                setView("roadmap");
+                clearFilters();
+              }}
+            />
+          ) : view === "team" ? (
+            <TeamPanel
+              sharedProjects={sharedProjects}
+              onOpenProjects={() => setShowProjects(true)}
+              onOpenSharedProjects={() => setShowSharedProjects(true)}
+              onOpenRoadmap={(memberId) => {
+                setRoadmapOwnerId(memberId);
+                setView("roadmap");
+                clearFilters();
+              }}
+            />
           ) : !hasGoals ? (
             <EmptyState onNew={() => openNew(null)} onTemplates={() => setShowTemplates(true)} lang={lang} />
           ) : (
@@ -767,7 +794,10 @@ function Shell() {
       )}
       {showProjects && (
         <ProjectsPanel
-          onClose={() => setShowProjects(false)}
+          onClose={() => {
+            setShowProjects(false);
+            setProjectsRefreshKey((k) => k + 1);
+          }}
           onOpenProject={(projectId) => {
             setCurrentProjectId(projectId);
             setShowProjects(false);
@@ -778,7 +808,6 @@ function Shell() {
       {showTemplates && <TemplatesPanel onClose={() => setShowTemplates(false)} />}
       {showProfile && <ProfilePanel onClose={() => setShowProfile(false)} />}
       {showArchive && <ArchivePanel onClose={() => setShowArchive(false)} />}
-      {showAssignedToMe && <AssignedToMePanel onClose={() => setShowAssignedToMe(false)} />}
       {showInvitations && (
         <InvitationsPanel
           onClose={() => {
@@ -792,17 +821,6 @@ function Shell() {
         />
       )}
       {showSharedProjects && <SharedProjectsPanel onClose={() => setShowSharedProjects(false)} />}
-      {showTeam && (
-        <TeamPanel
-          onClose={() => setShowTeam(false)}
-          onOpenRoadmap={(memberId) => {
-            setRoadmapOwnerId(memberId);
-            setView("roadmap");
-            setShowTeam(false);
-            clearFilters();
-          }}
-        />
-      )}
     </div>
   );
 }
