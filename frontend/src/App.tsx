@@ -49,6 +49,7 @@ import NotificationBell from "./components/NotificationBell";
 import TeamPanel from "./components/TeamPanel";
 import ProjectsPanel from "./components/ProjectsPanel";
 import ProjectsPage from "./components/ProjectsPage";
+import ProjectDetailPage from "./components/ProjectDetailPage";
 import AssignedToMeView from "./components/AssignedToMeView";
 import InvitationsPanel from "./components/InvitationsPanel";
 import SharedProjectsPanel from "./components/SharedProjectsPanel";
@@ -59,10 +60,10 @@ import { exportPDF, exportPNG, printElement } from "./lib/exporter";
 import { t, tFormat } from "./lib/i18n";
 import type { Lang } from "./lib/i18n";
 
-type View = "tree" | "roadmap" | "dashboard" | "deadlines" | "team" | "assigned" | "projects";
+type View = "tree" | "roadmap" | "dashboard" | "deadlines" | "team" | "assigned" | "projects" | "projectDetail";
 
 function Shell() {
-  const { goals, darkMode, setDarkMode, importData, lang, setLang, completeAll, members, projects, syncStatus, refreshMembersFromServer } = useStore();
+  const { goals, darkMode, setDarkMode, importData, lang, setLang, completeAll, members, projects, syncStatus } = useStore();
   const [view, setView] = useState<View>("roadmap");
   const [formGoal, setFormGoal] = useState<Goal | null>(null);
   const [formParent, setFormParent] = useState<string | null>(null);
@@ -71,6 +72,7 @@ function Shell() {
   const [showProfile, setShowProfile] = useState(false);
   const [showArchive, setShowArchive] = useState(false);
   const [showProjects, setShowProjects] = useState(false);
+  const [projectsPanelTarget, setProjectsPanelTarget] = useState<string | undefined>(undefined);
   const [projectsRefreshKey, setProjectsRefreshKey] = useState(0);
   const [showInvitations, setShowInvitations] = useState(false);
   const [showSharedProjects, setShowSharedProjects] = useState(false);
@@ -722,17 +724,26 @@ function Shell() {
           ) : view === "dashboard" ? (
             <Dashboard roadmapOwnerId={roadmapOwnerId} currentProjectId={currentProjectId} />
           ) : view === "assigned" ? (
-            <AssignedToMeView />
+            <AssignedToMeView onGotoDeadlines={() => setView("deadlines")} />
           ) : view === "projects" ? (
             <ProjectsPage
               refreshKey={projectsRefreshKey}
               onManage={() => setShowProjects(true)}
-              onNewProject={() => setShowProjects(true)}
               onOpenProject={(projectId) => {
                 setCurrentProjectId(projectId);
-                setView("roadmap");
                 clearFilters();
+                setView(projectId.startsWith("shared:") ? "roadmap" : "projectDetail");
               }}
+            />
+          ) : view === "projectDetail" && !isSharedView && activeProject ? (
+            <ProjectDetailPage
+              project={activeProject}
+              onOpenRoadmap={() => setView("roadmap")}
+              onManageProject={() => {
+                setProjectsPanelTarget(activeProject.id);
+                setShowProjects(true);
+              }}
+              onExportReport={() => doExport("pdf")}
             />
           ) : view === "team" ? (
             <TeamPanel
@@ -795,13 +806,16 @@ function Shell() {
       )}
       {showProjects && (
         <ProjectsPanel
+          initialEditProjectId={projectsPanelTarget}
           onClose={() => {
             setShowProjects(false);
+            setProjectsPanelTarget(undefined);
             setProjectsRefreshKey((k) => k + 1);
           }}
           onOpenProject={(projectId) => {
             setCurrentProjectId(projectId);
             setShowProjects(false);
+            setProjectsPanelTarget(undefined);
             clearFilters();
           }}
         />
@@ -818,14 +832,7 @@ function Shell() {
               .then((res) => setPendingInvitationsCount(res.invitations.length))
               .catch(() => { });
           }}
-          onAccepted={() => {
-            loadSharedProjects();
-            // A new TeamMember was created server-side for the project owner
-            // when this invitation was accepted — re-fetch the member list so
-            // the new collaborator shows up immediately in GoalForm and
-            // ProjectForm without needing a full page reload.
-            refreshMembersFromServer();
-          }}
+          onAccepted={loadSharedProjects}
         />
       )}
       {showSharedProjects && <SharedProjectsPanel onClose={() => setShowSharedProjects(false)} />}

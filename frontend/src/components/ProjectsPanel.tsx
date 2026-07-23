@@ -30,6 +30,7 @@ import {
 interface Props {
   onClose: () => void;
   onOpenProject: (projectId: string) => void;
+  initialEditProjectId?: string;
 }
 
 const PROJECT_COLORS = [
@@ -37,10 +38,12 @@ const PROJECT_COLORS = [
   "#ef4444", "#ec4899", "#8b5cf6", "#64748b",
 ];
 
-export default function ProjectsPanel({ onClose, onOpenProject }: Props) {
+export default function ProjectsPanel({ onClose, onOpenProject, initialEditProjectId }: Props) {
   const { closing, requestClose } = useClosing(onClose);
   const { projects, addProject, updateProject, deleteProject, goals, members, lang } = useStore();
-  const [editing, setEditing] = useState<Project | null>(null);
+  const [editing, setEditing] = useState<Project | null>(
+    () => projects.find((p) => p.id === initialEditProjectId) ?? null,
+  );
   const [creating, setCreating] = useState(false);
 
   const goalsByProject = (projectId: string) =>
