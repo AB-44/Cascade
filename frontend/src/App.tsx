@@ -739,6 +739,7 @@ function Shell() {
             <ProjectDetailPage
               project={activeProject}
               onOpenRoadmap={() => setView("roadmap")}
+              onBack={() => setView("projects")}
               onManageProject={() => {
                 setProjectsPanelTarget(activeProject.id);
                 setShowProjects(true);
