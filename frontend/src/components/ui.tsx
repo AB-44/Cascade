@@ -143,7 +143,7 @@ export type SelectGroup = { label: string; options: SelectOption[] };
 export function Select({
   value,
   onChange,
-  options,
+  options = [],
   groups,
   title,
   className,
@@ -153,7 +153,7 @@ export function Select({
 }: {
   value: string;
   onChange: (value: string) => void;
-  options: SelectOption[];
+  options?: SelectOption[];
   groups?: SelectGroup[];
   title?: string;
   className?: string;

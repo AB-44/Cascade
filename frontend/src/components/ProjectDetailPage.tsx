@@ -34,6 +34,7 @@ interface Props {
   onManageProject: () => void;
   onExportReport: () => void;
   onBack?: () => void;
+  onOpenArchive?: () => void;
 }
 
 type Health = "onTrack" | "atRisk" | "delayed" | "unknown";
@@ -53,8 +54,8 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "activity", label: "النشاط" },
 ];
 
-export default function ProjectDetailPage({ project, onOpenRoadmap, onManageProject, onExportReport, onBack }: Props) {
-  const { goals, members } = useStore();
+export default function ProjectDetailPage({ project, onOpenRoadmap, onManageProject, onExportReport, onBack, onOpenArchive }: Props) {
+  const { goals, members, archiveGoal } = useStore();
   const [tab, setTab] = useState<Tab>("overview");
   const [myProjects, setMyProjects] = useState<MyProject[] | null>(null);
 
@@ -69,6 +70,47 @@ export default function ProjectDetailPage({ project, onOpenRoadmap, onManageProj
 
   const apiProject = myProjects?.find((p) => p.id === project.id) ?? null;
   const isShared = apiProject ? apiProject.memberCount > 1 : project.memberIds.length > 0;
+
+  // The team panel needs to show two different kinds of "people on this
+  // project": real collaborator accounts (owner + anyone who accepted an
+  // invite — from the server, via apiProject.memberAvatars) and local
+  // team-member labels used just for task assignment (project.memberIds).
+  // A collaborator who accepted an invite but was never also added as a
+  // local team-member label previously didn't show up anywhere here —
+  // only local memberIds were rendered — so merge both, preferring the
+  // account entry when a name matches on both sides.
+  const teamRows = useMemo(() => {
+    const rows: { key: string; name: string; avatar: string; color: string; subtitle: string }[] = [];
+    const seenNames = new Set<string>();
+
+    if (apiProject) {
+      apiProject.memberAvatars.forEach((a, i) => {
+        rows.push({
+          key: `account-${i}`,
+          name: a.name,
+          avatar: a.avatar ?? "",
+          color: a.color ?? "#C9973B",
+          subtitle: i === 0 ? "مالك المشروع" : "متعاون",
+        });
+        seenNames.add(a.name.trim().toLowerCase());
+      });
+    }
+
+    members
+      .filter((m) => project.memberIds.includes(m.id))
+      .forEach((m) => {
+        if (seenNames.has(m.name.trim().toLowerCase())) return;
+        rows.push({
+          key: m.id,
+          name: m.name,
+          avatar: m.linkedAvatar || m.avatar || "",
+          color: m.linkedAvatarColor || m.color,
+          subtitle: m.email || m.role,
+        });
+      });
+
+    return rows;
+  }, [apiProject, members, project.memberIds]);
 
   const projectGoals = useMemo(
     () => goals.filter((g) => g.projectId === project.id && !g.archived),
@@ -157,6 +199,18 @@ export default function ProjectDetailPage({ project, onOpenRoadmap, onManageProj
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   let acc = 0;
+
+  const handleArchiveProject = () => {
+    const activeGoals = goals.filter((g) => g.projectId === project.id && !g.archived);
+    if (activeGoals.length > 0) {
+      if (confirm(`هل أنت تأكد من أرشفة جميع مهام مشروع "${project.name}"؟`)) {
+        activeGoals.forEach((g) => archiveGoal(g.id, true));
+        onOpenArchive?.();
+      }
+    } else {
+      onOpenArchive?.();
+    }
+  };
 
   return (
     <div>
@@ -323,7 +377,7 @@ export default function ProjectDetailPage({ project, onOpenRoadmap, onManageProj
           </dl>
 
           <button
-            onClick={onManageProject}
+            onClick={handleArchiveProject}
             className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-red-300 px-3 py-2 text-sm font-semibold text-red-600 transition-colors duration-150 hover:bg-red-50 dark:border-red-500/30 dark:text-red-400 dark:hover:bg-red-500/10"
           >
             <Archive size={15} />
@@ -343,25 +397,25 @@ export default function ProjectDetailPage({ project, onOpenRoadmap, onManageProj
               أعضاء
             </button>
           </div>
-          {members.filter((m) => project.memberIds.includes(m.id)).length === 0 ? (
+          {teamRows.length === 0 ? (
             <p className="py-4 text-center text-sm text-ink-soft">ما فيه أعضاء مرتبطون بهذا المشروع بعد.</p>
           ) : (
             <div className="space-y-1">
-              {members
-                .filter((m) => project.memberIds.includes(m.id))
-                .map((m) => (
-                  <div key={m.id} className="flex items-center gap-2.5 rounded-lg px-1.5 py-2 hover:bg-ink/5">
-                    <div className="relative shrink-0">
-                      <MemberAvatar member={m} size={32} />
-                      <span className="absolute -bottom-0.5 -end-0.5 h-2.5 w-2.5 rounded-full border-2 border-card bg-green-500" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-ink">{m.name}</p>
-                      <p className="truncate text-xs text-ink-soft">{m.email || m.role}</p>
-                    </div>
-                    <span className="shrink-0 rounded-full bg-basin-2 px-2 py-0.5 text-[10px] font-medium text-ink-soft">عضو</span>
+              {teamRows.map((row) => (
+                <div key={row.key} className="flex items-center gap-2.5 rounded-lg px-1.5 py-2 hover:bg-ink/5">
+                  <div className="relative shrink-0">
+                    <MemberAvatar member={{ name: row.name, avatar: row.avatar, color: row.color }} size={32} />
+                    <span className="absolute -bottom-0.5 -end-0.5 h-2.5 w-2.5 rounded-full border-2 border-card bg-green-500" />
                   </div>
-                ))}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-ink">{row.name}</p>
+                    <p className="truncate text-xs text-ink-soft">{row.subtitle}</p>
+                  </div>
+                  <span className="shrink-0 rounded-full bg-basin-2 px-2 py-0.5 text-[10px] font-medium text-ink-soft">
+                    {row.subtitle === "مالك المشروع" ? "مالك" : "عضو"}
+                  </span>
+                </div>
+              ))}
             </div>
           )}
         </div>

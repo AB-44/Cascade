@@ -44,7 +44,7 @@ import RoadmapView from "./components/RoadmapView";
 import DeadlinesView from "./components/DeadlinesView";
 import Dashboard from "./components/Dashboard";
 import TemplatesPanel from "./components/TemplatesPanel";
-import ArchivePanel from "./components/ArchivePanel";
+import ArchivePage from "./components/ArchivePage";
 import NotificationBell from "./components/NotificationBell";
 import TeamPanel from "./components/TeamPanel";
 import ProjectsPanel from "./components/ProjectsPanel";
@@ -60,7 +60,7 @@ import { exportPDF, exportPNG, printElement } from "./lib/exporter";
 import { t, tFormat } from "./lib/i18n";
 import type { Lang } from "./lib/i18n";
 
-type View = "tree" | "roadmap" | "dashboard" | "deadlines" | "team" | "assigned" | "projects" | "projectDetail";
+type View = "tree" | "roadmap" | "dashboard" | "deadlines" | "team" | "assigned" | "projects" | "projectDetail" | "archive";
 
 function Shell() {
   const { goals, darkMode, setDarkMode, importData, lang, setLang, completeAll, members, projects, syncStatus } = useStore();
@@ -70,7 +70,6 @@ function Shell() {
   const [showForm, setShowForm] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
-  const [showArchive, setShowArchive] = useState(false);
   const [showProjects, setShowProjects] = useState(false);
   const [projectsPanelTarget, setProjectsPanelTarget] = useState<string | undefined>(undefined);
   const [projectsRefreshKey, setProjectsRefreshKey] = useState(0);
@@ -320,8 +319,8 @@ function Shell() {
       id: "archive",
       icon: Archive,
       label: t(lang, "archive"),
-      active: showArchive,
-      onClick: () => setShowArchive(true),
+      active: !isSharedView && view === "archive",
+      onClick: () => setView("archive"),
     },
     {
       id: "templates",
@@ -702,7 +701,7 @@ function Shell() {
 
       {/* Main content */}
       <main className="mx-auto max-w-[1700px] px-4 py-6">
-        {view !== "assigned" && view !== "projects" && (
+        {view !== "assigned" && view !== "projects" && view !== "archive" && (
         <div className="no-print mb-4 flex flex-wrap items-center gap-4 text-sm font-semibold text-ink-soft">
           <span className="flex items-center gap-1.5"><FolderDot size={16} className="text-terrace-500" /> {currentProjectLabel}</span>
           <span className="text-line">|</span>
@@ -745,6 +744,7 @@ function Shell() {
                 setShowProjects(true);
               }}
               onExportReport={() => doExport("pdf")}
+              onOpenArchive={() => setView("archive")}
             />
           ) : view === "team" ? (
             <TeamPanel
@@ -757,6 +757,8 @@ function Shell() {
                 clearFilters();
               }}
             />
+          ) : view === "archive" ? (
+            <ArchivePage />
           ) : !hasGoals ? (
             <EmptyState onNew={() => openNew(null)} onTemplates={() => setShowTemplates(true)} lang={lang} />
           ) : (
@@ -823,7 +825,6 @@ function Shell() {
       )}
       {showTemplates && <TemplatesPanel onClose={() => setShowTemplates(false)} />}
       {showProfile && <ProfilePanel onClose={() => setShowProfile(false)} />}
-      {showArchive && <ArchivePanel onClose={() => setShowArchive(false)} />}
       {showInvitations && (
         <InvitationsPanel
           onClose={() => {
