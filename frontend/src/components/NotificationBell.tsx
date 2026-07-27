@@ -34,9 +34,10 @@ export default function NotificationBell({ onGoto }: { onGoto: (id: string) => v
           setOpen((v) => !v);
           requestNotificationPermission();
         }}
-        className="relative inline-flex h-9 w-9 items-center justify-center rounded-lg text-ink-soft hover:bg-basin-2"
+        className="topbar-nav-item relative inline-flex h-9 items-center justify-center gap-0 rounded-lg px-2 text-ink-soft hover:bg-basin-2"
       >
-        <Bell size={19} />
+        <Bell size={19} className="shrink-0" />
+        <span className="topbar-nav-text text-sm font-medium">{t(lang, "notifications")}</span>
         {count > 0 && (
           <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
             {count}

@@ -378,9 +378,10 @@ function Shell() {
             <button
               onClick={() => setShowInvitations(true)}
               title="دعوات المشاريع"
-              className="relative inline-flex h-9 w-9 items-center justify-center rounded-lg text-ink-soft hover:bg-terrace-50"
+              className="topbar-nav-item relative inline-flex h-9 items-center justify-center gap-0 rounded-lg px-2 text-ink-soft hover:bg-terrace-50"
             >
-              <Mail size={19} />
+              <Mail size={19} className="shrink-0" />
+              <span className="topbar-nav-text text-sm font-medium">دعوات</span>
               {pendingInvitationsCount > 0 && (
                 <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
                   {pendingInvitationsCount}
@@ -390,9 +391,10 @@ function Shell() {
             <button
               onClick={() => setShowSharedProjects(true)}
               title="مشاريع مشتركة معي"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-ink-soft hover:bg-terrace-50"
+              className="topbar-nav-item inline-flex h-9 items-center justify-center gap-0 rounded-lg px-2 text-ink-soft hover:bg-terrace-50"
             >
-              <Share2 size={19} />
+              <Share2 size={19} className="shrink-0" />
+              <span className="topbar-nav-text text-sm font-medium">مشاريع مشتركة</span>
             </button>
             <span
               title={
@@ -402,16 +404,23 @@ function Shell() {
                     ? t(lang, "syncOffline")
                     : t(lang, "syncedOk")
               }
-              className={`inline-flex h-9 w-9 items-center justify-center rounded-lg ${syncStatus === "offline" ? "text-clay" : "text-ink-soft"
+              className={`topbar-nav-item inline-flex h-9 items-center justify-center gap-0 rounded-lg px-2 hover:bg-terrace-50 ${syncStatus === "offline" ? "text-clay" : "text-ink-soft"
                 }`}
             >
               {syncStatus === "syncing" ? (
-                <RefreshCw size={17} className="animate-spin" />
+                <RefreshCw size={17} className="shrink-0 animate-spin" />
               ) : syncStatus === "offline" ? (
-                <CloudOff size={17} />
+                <CloudOff size={17} className="shrink-0" />
               ) : (
-                <CloudCheck size={17} />
+                <CloudCheck size={17} className="shrink-0" />
               )}
+              <span className="topbar-nav-text text-sm font-medium">
+                {syncStatus === "syncing"
+                  ? t(lang, "syncingNow")
+                  : syncStatus === "offline"
+                    ? t(lang, "syncOffline")
+                    : t(lang, "syncedOk")}
+              </span>
             </span>
             <div className="ms-1">
               <UserProfileMenu lang={lang} onOpenProfile={() => setShowProfile(true)} />
@@ -753,7 +762,6 @@ function Shell() {
               project={activeProject}
               onOpenRoadmap={() => setView("roadmap")}
               onBack={() => setView("projects")}
-              onOpenArchive={() => setView("archive")}
               onManageProject={() => {
                 setProjectsPanelTarget(activeProject.id);
                 setShowProjects(true);
