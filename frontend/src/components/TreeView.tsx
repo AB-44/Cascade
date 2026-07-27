@@ -126,13 +126,12 @@ function NodeRow({
           }
           setDragOver("");
         }}
-        className={`terrace-card group relative border bg-card p-3 shadow-sm transition ${
-          dragOver === "into"
+        className={`terrace-card group relative border bg-card p-3 shadow-sm transition ${dragOver === "into"
             ? "border-terrace-500 ring-2 ring-terrace-400/40"
             : dragOver === "before"
               ? "border-t-2 border-t-terrace-500 border-line"
               : "border-line"
-        }`}
+          }`}
         style={{ borderLeftWidth: 4, borderLeftColor: goal.color }}
       >
         <div className="flex items-start gap-2">
@@ -213,55 +212,54 @@ function NodeRow({
             )}
           </div>
 
-            {/* task list button */}
-            <div className="flex flex-col items-end gap-1">
+          {/* task list button */}
+          <div className="flex flex-col items-end gap-1">
+            <button
+              onClick={() => setShowTasks(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-basin-2 px-3 py-1.5 text-[11px] font-medium text-ink-soft transition hover:bg-terrace-100 hover:text-terrace-700"
+            >
+              <ListTodo size={14} /> {t(lang, "tasksBtn")}
+              {goal.checklist.length > 0 && <span className="rounded-full bg-terrace-500 px-1.5 text-[9px] text-white">{goal.checklist.length}</span>}
+            </button>
+          </div>
+
+          {/* ring + actions */}
+          <div className="flex flex-col items-end gap-1">
+            <div className="relative hidden sm:block">
+              <ProgressRing value={progress} color={goal.color} />
+              <span className="absolute inset-0 flex items-center justify-center font-mono-num text-[10px] font-bold text-ink-soft">
+                {progress}%
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 opacity-0 transition group-hover:opacity-100">
               <button
-                onClick={() => setShowTasks(true)}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-basin-2 px-3 py-1.5 text-[11px] font-medium text-ink-soft transition hover:bg-terrace-100 hover:text-terrace-700"
+                onClick={toggleComplete}
+                className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${goal.status === "Completed"
+                    ? "bg-terrace-100 text-terrace-700 hover:bg-terrace-200"
+                    : "bg-terrace-600 text-white hover:bg-terrace-700"
+                  }`}
               >
-                <ListTodo size={14} /> {t(lang, "tasksBtn")}
-                {goal.checklist.length > 0 && <span className="rounded-full bg-terrace-500 px-1.5 text-[9px] text-white">{goal.checklist.length}</span>}
+                <CheckCircle2 size={14} />
+                {goal.status === "Completed" ? t(lang, "completed") : t(lang, "markComplete")}
+              </button>
+              <button onClick={() => onAddChild(goal.id)} title={t(lang, "addSubGoal")} className="rounded p-1.5 text-ink-soft hover:bg-terrace-50 hover:text-terrace-600">
+                <Plus size={15} />
+              </button>
+              <button onClick={() => onEdit(goal)} title={t(lang, "edit")} className="rounded p-1.5 text-ink-soft hover:bg-basin-2 hover:text-ink">
+                <Pencil size={15} />
+              </button>
+              <button onClick={() => archiveGoal(goal.id, true)} title={t(lang, "archiveGoal")} className="rounded p-1.5 text-ink-soft hover:bg-gold-50 hover:text-gold-600">
+                <Archive size={15} />
+              </button>
+              <button
+                onClick={() => confirm(tFormat(lang, "confirmDelete", { name: goal.name })) && deleteGoal(goal.id)}
+                title={t(lang, "delete")}
+                className="rounded p-1.5 text-ink-soft hover:bg-clay/10 hover:text-clay"
+              >
+                <Trash2 size={15} />
               </button>
             </div>
-
-            {/* ring + actions */}
-            <div className="flex flex-col items-end gap-1">
-              <div className="relative hidden sm:block">
-                <ProgressRing value={progress} color={goal.color} />
-                <span className="absolute inset-0 flex items-center justify-center font-mono-num text-[10px] font-bold text-ink-soft">
-                  {progress}%
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5 opacity-0 transition group-hover:opacity-100">
-                <button
-                  onClick={toggleComplete}
-                  className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${
-                    goal.status === "Completed"
-                      ? "bg-terrace-100 text-terrace-700 hover:bg-terrace-200"
-                      : "bg-terrace-600 text-white hover:bg-terrace-700"
-                  }`}
-                >
-                  <CheckCircle2 size={14} />
-                  {goal.status === "Completed" ? t(lang, "completed") : t(lang, "markComplete")}
-                </button>
-                <button onClick={() => onAddChild(goal.id)} title={t(lang, "addSubGoal")} className="rounded p-1.5 text-ink-soft hover:bg-terrace-50 hover:text-terrace-600">
-                  <Plus size={15} />
-                </button>
-                <button onClick={() => onEdit(goal)} title={t(lang, "edit")} className="rounded p-1.5 text-ink-soft hover:bg-basin-2 hover:text-ink">
-                  <Pencil size={15} />
-                </button>
-                <button onClick={() => archiveGoal(goal.id, true)} title={t(lang, "archiveGoal")} className="rounded p-1.5 text-ink-soft hover:bg-gold-50 hover:text-gold-600">
-                  <Archive size={15} />
-                </button>
-                <button
-                  onClick={() => confirm(tFormat(lang, "confirmDelete", { name: goal.name })) && deleteGoal(goal.id)}
-                  title={t(lang, "delete")}
-                  className="rounded p-1.5 text-ink-soft hover:bg-clay/10 hover:text-clay"
-                >
-                  <Trash2 size={15} />
-                </button>
-              </div>
-            </div>
+          </div>
         </div>
       </div>
 

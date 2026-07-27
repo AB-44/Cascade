@@ -163,6 +163,20 @@ function Shell() {
 
   const activeProject = projects.find((p) => p.id === currentProjectId);
   const isSharedView = currentProjectId.startsWith("shared:");
+
+  // If the project open in ProjectDetailPage gets archived (e.g. via the
+  // "إعدادات المشروع" quick action → archive, from inside ProjectsPanel),
+  // it silently drops out of `projects` and activeProject becomes
+  // undefined mid-view. Bounce back to the projects list instead of
+  // leaving the user stranded on a view with nothing to show. (No need to
+  // check isSharedView here — "projectDetail" is only ever entered for a
+  // plain, non-"shared:" project id in the first place.)
+  useEffect(() => {
+    if (view === "projectDetail" && !activeProject) {
+      setView("projects");
+    }
+  }, [activeProject, view]);
+
   const activeSharedProject = isSharedView
     ? sharedProjects.find((p) => `shared:${p.id}` === currentProjectId) ?? null
     : null;
@@ -319,7 +333,7 @@ function Shell() {
       id: "archive",
       icon: Archive,
       label: t(lang, "archive"),
-      active: !isSharedView && view === "archive",
+      active: view === "archive",
       onClick: () => setView("archive"),
     },
     {
@@ -701,7 +715,7 @@ function Shell() {
 
       {/* Main content */}
       <main className="mx-auto max-w-[1700px] px-4 py-6">
-        {view !== "assigned" && view !== "projects" && view !== "archive" && (
+        {view !== "assigned" && view !== "projects" && (
         <div className="no-print mb-4 flex flex-wrap items-center gap-4 text-sm font-semibold text-ink-soft">
           <span className="flex items-center gap-1.5"><FolderDot size={16} className="text-terrace-500" /> {currentProjectLabel}</span>
           <span className="text-line">|</span>
@@ -739,13 +753,15 @@ function Shell() {
               project={activeProject}
               onOpenRoadmap={() => setView("roadmap")}
               onBack={() => setView("projects")}
+              onOpenArchive={() => setView("archive")}
               onManageProject={() => {
                 setProjectsPanelTarget(activeProject.id);
                 setShowProjects(true);
               }}
               onExportReport={() => doExport("pdf")}
-              onOpenArchive={() => setView("archive")}
             />
+          ) : view === "archive" ? (
+            <ArchivePage />
           ) : view === "team" ? (
             <TeamPanel
               sharedProjects={sharedProjects}
@@ -757,8 +773,6 @@ function Shell() {
                 clearFilters();
               }}
             />
-          ) : view === "archive" ? (
-            <ArchivePage />
           ) : !hasGoals ? (
             <EmptyState onNew={() => openNew(null)} onTemplates={() => setShowTemplates(true)} lang={lang} />
           ) : (

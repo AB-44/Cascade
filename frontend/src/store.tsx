@@ -75,6 +75,7 @@ interface StoreCtx {
   addProject: (p: Omit<Project, "id" | "createdAt">) => Project;
   updateProject: (id: string, patch: Partial<Project>) => void;
   deleteProject: (id: string) => void;
+  archiveProjectLocally: (id: string) => void;
 }
 
 const Ctx = createContext<StoreCtx | null>(null);
@@ -502,6 +503,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setGoals((prevG) => prevG.map((g) => (g.projectId === id ? { ...g, projectId: null } : g)));
   }, []);
 
+  /**
+   * Call after archiveProject() (the API call) succeeds — mirrors what the
+   * server just did: the project and its goals disappear from the active
+   * workspace, but unlike deleteProject, goals keep their projectId intact
+   * (both locally and on the server) so restoring the project brings them
+   * straight back together, instead of leaving them as orphaned goals.
+   */
+  const archiveProjectLocally = useCallback((id: string) => {
+    setProjects((prev) => prev.filter((p) => p.id !== id));
+    setGoals((prevG) => prevG.filter((g) => g.projectId !== id));
+  }, []);
+
   const replaceAll = useCallback((g: Goal[]) => setGoals(g), []);
 
   const effProgress = useCallback((g: Goal) => computeProgress(goals, g), [goals]);
@@ -554,6 +567,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addProject,
       updateProject,
       deleteProject,
+      archiveProjectLocally,
     }),
     [
       goals,
@@ -584,6 +598,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addProject,
       updateProject,
       deleteProject,
+      archiveProjectLocally,
     ],
   );
 

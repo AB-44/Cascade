@@ -3,7 +3,7 @@ import {
   X,
   Plus,
   Pencil,
-  Trash2,
+  Archive,
   FolderDot,
   FolderOpen,
   Users,
@@ -22,6 +22,7 @@ import {
   inviteToProject,
   fetchProjectInvitations,
   removeProjectCollaborator,
+  archiveProject,
   ApiError,
   type ProjectCollaboratorInfo,
   type ProjectInvitationInfo,
@@ -40,7 +41,8 @@ const PROJECT_COLORS = [
 
 export default function ProjectsPanel({ onClose, onOpenProject, initialEditProjectId }: Props) {
   const { closing, requestClose } = useClosing(onClose);
-  const { projects, addProject, updateProject, deleteProject, goals, members, lang } = useStore();
+  const { projects, addProject, updateProject, archiveProjectLocally, goals, members, lang } = useStore();
+  const [archivingId, setArchivingId] = useState<string | null>(null);
   const [editing, setEditing] = useState<Project | null>(
     () => projects.find((p) => p.id === initialEditProjectId) ?? null,
   );
@@ -164,15 +166,23 @@ export default function ProjectsPanel({ onClose, onOpenProject, initialEditProje
                         <Pencil size={15} />
                       </button>
                       <button
-                        onClick={() => {
-                          if (confirm(tFormat(lang, "confirmDeleteProject", { name: project.name }))) {
-                            deleteProject(project.id);
+                        disabled={archivingId === project.id}
+                        onClick={async () => {
+                          if (!confirm(tFormat(lang, "confirmArchiveProject", { name: project.name }))) return;
+                          setArchivingId(project.id);
+                          try {
+                            await archiveProject(project.id);
+                            archiveProjectLocally(project.id);
+                          } catch {
+                            alert(t(lang, "archiveProjectFailed"));
+                          } finally {
+                            setArchivingId(null);
                           }
                         }}
-                        title={t(lang, "delete")}
-                        className="rounded-md p-1.5 text-ink-soft transition-colors duration-150 hover:bg-clay/10 hover:text-clay"
+                        title={t(lang, "archive")}
+                        className="rounded-md p-1.5 text-ink-soft transition-colors duration-150 hover:bg-clay/10 hover:text-clay disabled:opacity-50"
                       >
-                        <Trash2 size={15} />
+                        {archivingId === project.id ? <Loader2 size={15} className="animate-spin" /> : <Archive size={15} />}
                       </button>
                     </div>
                   </div>

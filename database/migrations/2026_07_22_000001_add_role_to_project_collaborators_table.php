@@ -17,9 +17,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('project_collaborators', function (Blueprint $table) {
-            $table->string('role')->default('collaborator')->after('user_id');
-        });
+        if (!Schema::hasColumn('project_collaborators', 'role')) {
+            Schema::table('project_collaborators', function (Blueprint $table) {
+                $table->string('role')->default('collaborator')->after('user_id');
+            });
+        }
 
         // Backfill: every existing project's owner gets an explicit
         // owner row. Existing rows (all created via invitation-accept,

@@ -111,4 +111,129 @@ class ProjectController extends Controller
 
         return response()->json(['message' => 'تمت المزامنة']);
     }
+
+    /**
+     * Archived projects only (owner-only — an archived project drops out
+     * of collaborators' access too, matching a trashed folder). Each row
+     * carries what the archive page needs: live-computed progress (goals
+     * themselves are untouched, just excluded from active queries — see
+     * StateController/AssignedGoalController) plus the owner's name for
+     * the "archived by" column, since this app has no separate admin role.
+     */
+    public function archivedIndex(Request $request)
+    {
+        $user = $request->user();
+
+        $projects = Project::onlyTrashed()
+            ->where('user_id', $user->id)
+            ->orderByDesc('deleted_at')
+            ->get();
+
+        $goalStats = Goal::whereIn('project_id', $projects->pluck('id'))
+            ->selectRaw('project_id, count(*) as total, sum(case when status = ? then 1 else 0 end) as completed', ['Completed'])
+            ->groupBy('project_id')
+            ->get()
+            ->keyBy('project_id');
+
+        return response()->json([
+            'projects' => $projects->map(function (Project $project) use ($goalStats, $user) {
+                $stats = $goalStats->get($project->id);
+                $total = (int) ($stats->total ?? 0);
+                $completed = (int) ($stats->completed ?? 0);
+
+                return [
+                    'id' => $project->id,
+                    'name' => $project->name,
+                    'description' => $project->description ?? '',
+                    'color' => $project->color ?? '',
+                    'goalCount' => $total,
+                    'completedCount' => $completed,
+                    'progressPct' => $total > 0 ? (int) round($completed / $total * 100) : 0,
+                    'archivedByName' => $user->name,
+                    'archivedAt' => $project->deleted_at?->toIso8601String(),
+                ];
+            })->values(),
+        ]);
+    }
+
+    /**
+     * Read-only fetch of one archived project plus its goals, for the
+     * "عرض" (view) action in the archive page — the project is excluded
+     * from every *active* query on purpose, so this is the one place that
+     * deliberately reaches past that with onlyTrashed().
+     */
+    public function showArchived(Request $request, string $project)
+    {
+        $user = $request->user();
+        $projectModel = Project::onlyTrashed()->where('user_id', $user->id)->findOrFail($project);
+
+        $goals = Goal::where('project_id', $projectModel->id)
+            ->with('checklistItems')
+            ->orderBy('order_index')
+            ->get()
+            ->map(fn (Goal $g) => [
+                'id' => $g->id,
+                'parentId' => $g->parent_id,
+                'name' => $g->name,
+                'status' => $g->status,
+                'progress' => $g->progress,
+                'priority' => $g->priority,
+                'color' => $g->color,
+                'assignedTo' => $g->assigned_to ?? '',
+                'checklist' => $g->checklistItems->map(fn ($item) => [
+                    'id' => $item->id,
+                    'text' => $item->text,
+                    'done' => $item->done,
+                ])->values(),
+            ]);
+
+        return response()->json([
+            'project' => [
+                'id' => $projectModel->id,
+                'name' => $projectModel->name,
+                'description' => $projectModel->description ?? '',
+                'color' => $projectModel->color ?? '',
+                'archivedAt' => $projectModel->deleted_at?->toIso8601String(),
+            ],
+            'goals' => $goals,
+        ]);
+    }
+
+    public function archive(Request $request, string $project)
+    {
+        $user = $request->user();
+        $projectModel = $user->projects()->findOrFail($project);
+        $projectModel->delete(); // soft delete — see SoftDeletes on the model
+
+        return response()->json(['message' => 'تمت الأرشفة']);
+    }
+
+    public function restore(Request $request, string $project)
+    {
+        $user = $request->user();
+        $projectModel = Project::onlyTrashed()->where('user_id', $user->id)->findOrFail($project);
+        $projectModel->restore();
+
+        return response()->json(['message' => 'تمت الاستعادة']);
+    }
+
+    /**
+     * Permanent, unrecoverable delete. Goals aren't soft-deleted (only
+     * `archived` as a normal boolean, a different feature), so nothing
+     * cascades at the DB level here — deleting the project's goals
+     * explicitly first cascades to their checklist_items/time_sessions
+     * via the FK on those tables.
+     */
+    public function forceDelete(Request $request, string $project)
+    {
+        $user = $request->user();
+        $projectModel = Project::onlyTrashed()->where('user_id', $user->id)->findOrFail($project);
+
+        DB::transaction(function () use ($projectModel) {
+            Goal::where('project_id', $projectModel->id)->delete();
+            $projectModel->forceDelete();
+        });
+
+        return response()->json(['message' => 'تم الحذف نهائيًا']);
+    }
 }

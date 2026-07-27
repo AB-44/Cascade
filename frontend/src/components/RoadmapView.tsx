@@ -62,80 +62,78 @@ export default function RoadmapView({ onEdit, onAddChild, filter, sequentialLock
               </div>
             )}
             <div
-              className={`terrace-card flex w-[272px] shrink-0 flex-col overflow-hidden border border-line bg-card shadow-sm transition-opacity duration-150 ${
-                locked ? "opacity-60" : ""
-              }`}
+              className={`terrace-card flex w-[272px] shrink-0 flex-col overflow-hidden border border-line bg-card shadow-sm transition-opacity duration-150 ${locked ? "opacity-60" : ""
+                }`}
               style={{ borderTopWidth: 3, borderTopColor: stage.goal.color || "var(--color-terrace-500)" }}
             >
-            {/* stage header */}
-            <div className="border-b border-line bg-basin-2/50 px-4 py-3">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-ink-soft">
-                  {t(lang, "stage")} {i + 1}
-                </span>
+              {/* stage header */}
+              <div className="border-b border-line bg-basin-2/50 px-4 py-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-ink-soft">
+                    {t(lang, "stage")} {i + 1}
+                  </span>
+                  {locked ? (
+                    <Lock size={14} className="text-ink-soft" />
+                  ) : (
+                    <div className="flex">
+                      <button
+                        onClick={() => onAddChild(stage.goal.id)}
+                        title={t(lang, "addSubGoal")}
+                        className="rounded p-1 text-ink-soft transition-colors duration-150 hover:bg-terrace-500/10 hover:text-terrace-600"
+                      >
+                        <Plus size={14} />
+                      </button>
+                      <button
+                        onClick={() => onEdit(stage.goal)}
+                        title={t(lang, "edit")}
+                        className="rounded p-1 text-ink-soft transition-colors duration-150 hover:bg-ink/5 hover:text-ink"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <h3 className="mt-1 flex items-center gap-2 font-display text-lg font-semibold text-ink">
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: priorityColor(stage.goal.priority) }} />
+                  <span className="truncate">{stage.goal.name}</span>
+                </h3>
+                <div className="mt-2 flex items-center gap-2">
+                  <ProgressBar value={stageProgress} color={stage.goal.color} />
+                  <span className="font-mono-num text-xs font-semibold text-ink-soft">{stageProgress}%</span>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {isBlocked(goals, stage.goal) && <BlockedBadge />}
+                  <DeadlineBadge goal={stage.goal} />
+                </div>
+              </div>
+              {/* sub goals */}
+              <div className="flex-1 space-y-2 p-3">
                 {locked ? (
-                  <Lock size={14} className="text-ink-soft" />
+                  <p className="flex items-center justify-center gap-1.5 py-4 text-center text-xs text-ink-soft">
+                    <Lock size={12} />
+                    {t(lang, "stageLocked")}
+                  </p>
                 ) : (
-                  <div className="flex">
+                  <>
+                    {stage.children.length === 0 && (
+                      <p className="py-4 text-center text-xs text-ink-soft">{t(lang, "noSubGoals")}</p>
+                    )}
+                    {stage.children.map((c) => (
+                      <RoadmapCard key={c.goal.id} node={c} onEdit={onEdit} depth={0} />
+                    ))}
                     <button
-                      onClick={() => onAddChild(stage.goal.id)}
-                      title={t(lang, "addSubGoal")}
-                      className="rounded p-1 text-ink-soft transition-colors duration-150 hover:bg-terrace-500/10 hover:text-terrace-600"
+                      onClick={() => toggleComplete(stage.goal)}
+                      className={`flex w-full items-center justify-center gap-1.5 rounded-lg border py-1.5 text-xs font-semibold transition-colors duration-150 ${stage.goal.status === "Completed"
+                          ? "border-terrace-500/40 bg-terrace-500/10 text-terrace-700"
+                          : "border-line text-ink-soft hover:border-terrace-300 hover:bg-terrace-500/10 hover:text-terrace-700"
+                        }`}
                     >
-                      <Plus size={14} />
+                      <CheckCircle2 size={14} />
+                      {stage.goal.status === "Completed" ? t(lang, "completed") : t(lang, "markComplete")}
                     </button>
-                    <button
-                      onClick={() => onEdit(stage.goal)}
-                      title={t(lang, "edit")}
-                      className="rounded p-1 text-ink-soft transition-colors duration-150 hover:bg-ink/5 hover:text-ink"
-                    >
-                      <Pencil size={14} />
-                    </button>
-                  </div>
+                  </>
                 )}
               </div>
-              <h3 className="mt-1 flex items-center gap-2 font-display text-lg font-semibold text-ink">
-                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: priorityColor(stage.goal.priority) }} />
-                <span className="truncate">{stage.goal.name}</span>
-              </h3>
-              <div className="mt-2 flex items-center gap-2">
-                <ProgressBar value={stageProgress} color={stage.goal.color} />
-                <span className="font-mono-num text-xs font-semibold text-ink-soft">{stageProgress}%</span>
-              </div>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {isBlocked(goals, stage.goal) && <BlockedBadge />}
-                <DeadlineBadge goal={stage.goal} />
-              </div>
-            </div>
-            {/* sub goals */}
-            <div className="flex-1 space-y-2 p-3">
-              {locked ? (
-                <p className="flex items-center justify-center gap-1.5 py-4 text-center text-xs text-ink-soft">
-                  <Lock size={12} />
-                  {t(lang, "stageLocked")}
-                </p>
-              ) : (
-                <>
-                  {stage.children.length === 0 && (
-                    <p className="py-4 text-center text-xs text-ink-soft">{t(lang, "noSubGoals")}</p>
-                  )}
-                  {stage.children.map((c) => (
-                    <RoadmapCard key={c.goal.id} node={c} onEdit={onEdit} depth={0} />
-                  ))}
-                  <button
-                    onClick={() => toggleComplete(stage.goal)}
-                    className={`flex w-full items-center justify-center gap-1.5 rounded-lg border py-1.5 text-xs font-semibold transition-colors duration-150 ${
-                      stage.goal.status === "Completed"
-                        ? "border-terrace-500/40 bg-terrace-500/10 text-terrace-700"
-                        : "border-line text-ink-soft hover:border-terrace-300 hover:bg-terrace-500/10 hover:text-terrace-700"
-                    }`}
-                  >
-                    <CheckCircle2 size={14} />
-                    {stage.goal.status === "Completed" ? t(lang, "completed") : t(lang, "markComplete")}
-                  </button>
-                </>
-              )}
-            </div>
             </div>
           </div>
         );

@@ -24,7 +24,7 @@ import {
 import type { Project } from "../types";
 import { useStore } from "../store";
 import { deadlineState, isBlocked, priorityColor } from "../lib/goals";
-import { fetchMyProjects, type MyProject } from "../lib/api";
+import { fetchMyProjects, archiveProject as archiveProjectApi, type MyProject } from "../lib/api";
 import { ProgressBar, ProgressRing } from "./ui";
 import { MemberAvatar } from "./TeamPanel";
 
@@ -55,7 +55,8 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 
 export default function ProjectDetailPage({ project, onOpenRoadmap, onManageProject, onExportReport, onBack, onOpenArchive }: Props) {
-  const { goals, members, archiveGoal } = useStore();
+  const { goals, members, archiveProjectLocally } = useStore();
+  const [archiving, setArchiving] = useState(false);
   const [tab, setTab] = useState<Tab>("overview");
   const [myProjects, setMyProjects] = useState<MyProject[] | null>(null);
 
@@ -200,15 +201,18 @@ export default function ProjectDetailPage({ project, onOpenRoadmap, onManageProj
   const c = 2 * Math.PI * r;
   let acc = 0;
 
-  const handleArchiveProject = () => {
-    const activeGoals = goals.filter((g) => g.projectId === project.id && !g.archived);
-    if (activeGoals.length > 0) {
-      if (confirm(`هل أنت تأكد من أرشفة جميع مهام مشروع "${project.name}"؟`)) {
-        activeGoals.forEach((g) => archiveGoal(g.id, true));
-        onOpenArchive?.();
-      }
-    } else {
-      onOpenArchive?.();
+  const handleArchiveProject = async () => {
+    if (!confirm(`هل أنت متأكد من أرشفة مشروع "${project.name}" وجميع المهام التابعة له؟ تقدر تسترجعه لاحقًا من الأرشيف.`)) return;
+    setArchiving(true);
+    try {
+      await archiveProjectApi(project.id);
+      archiveProjectLocally(project.id);
+      if (onOpenArchive) onOpenArchive();
+      else onBack?.();
+    } catch {
+      alert("تعذّرت أرشفة المشروع. حاول مرة ثانية.");
+    } finally {
+      setArchiving(false);
     }
   };
 
@@ -378,10 +382,11 @@ export default function ProjectDetailPage({ project, onOpenRoadmap, onManageProj
 
           <button
             onClick={handleArchiveProject}
-            className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-red-300 px-3 py-2 text-sm font-semibold text-red-600 transition-colors duration-150 hover:bg-red-50 dark:border-red-500/30 dark:text-red-400 dark:hover:bg-red-500/10"
+            disabled={archiving}
+            className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-red-300 px-3 py-2 text-sm font-semibold text-red-600 transition-colors duration-150 hover:bg-red-50 disabled:opacity-60 dark:border-red-500/30 dark:text-red-400 dark:hover:bg-red-500/10"
           >
             <Archive size={15} />
-            أرشفة المشروع
+            {archiving ? "جارٍ الأرشفة..." : "أرشفة المشروع"}
           </button>
         </div>
 
@@ -427,9 +432,8 @@ export default function ProjectDetailPage({ project, onOpenRoadmap, onManageProj
               <button
                 key={tb.id}
                 onClick={() => setTab(tb.id)}
-                className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-                  tab === tb.id ? "bg-terrace-600 text-white shadow-sm" : "text-ink-soft hover:bg-ink/5"
-                }`}
+                className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium transition ${tab === tb.id ? "bg-terrace-600 text-white shadow-sm" : "text-ink-soft hover:bg-ink/5"
+                  }`}
               >
                 {tb.label}
               </button>

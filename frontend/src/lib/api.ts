@@ -429,6 +429,60 @@ export function fetchMyProjects(): Promise<{ projects: MyProject[] }> {
   return request("/my-projects");
 }
 
+export interface ArchivedProject {
+  id: string;
+  name: string;
+  description: string;
+  color: string;
+  goalCount: number;
+  completedCount: number;
+  progressPct: number;
+  archivedByName: string;
+  archivedAt: string | null;
+}
+
+export function fetchArchivedProjects(): Promise<{ projects: ArchivedProject[] }> {
+  return request("/projects/archived");
+}
+
+export interface ArchivedGoal {
+  id: string;
+  parentId: string | null;
+  name: string;
+  status: Status;
+  progress: number;
+  priority: Priority;
+  color: string;
+  assignedTo: string;
+  checklist: { id: string; text: string; done: boolean }[];
+}
+
+export interface ArchivedProjectSummary {
+  id: string;
+  name: string;
+  description: string;
+  color: string;
+  archivedAt: string | null;
+}
+
+export function fetchArchivedProjectDetail(
+  projectId: string,
+): Promise<{ project: ArchivedProjectSummary; goals: ArchivedGoal[] }> {
+  return request(`/projects/archived/${projectId}`);
+}
+
+export function archiveProject(projectId: string): Promise<void> {
+  return request(`/projects/${projectId}/archive`, { method: "POST" });
+}
+
+export function restoreProject(projectId: string): Promise<void> {
+  return request(`/projects/${projectId}/restore`, { method: "POST" });
+}
+
+export function forceDeleteProject(projectId: string): Promise<void> {
+  return request(`/projects/${projectId}/force`, { method: "DELETE" });
+}
+
 export function updateSharedGoal(
   projectId: string,
   goalId: string,

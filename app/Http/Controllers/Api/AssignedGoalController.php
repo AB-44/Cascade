@@ -39,6 +39,11 @@ class AssignedGoalController extends Controller
             })
             ->where('user_id', '!=', $user->id)
             ->where('archived', false)
+            // Skip anything whose project has been archived by its owner —
+            // see the matching guard in StateController.
+            ->where(function ($q) {
+                $q->whereNull('project_id')->orWhereHas('project');
+            })
             ->with(['checklistItems', 'user:id,name', 'project:id,name,color'])
             ->orderByRaw("deadline is null, deadline asc")
             ->get();
@@ -179,6 +184,9 @@ class AssignedGoalController extends Controller
                 if ($memberNames) {
                     $q->orWhereIn('assigned_to', $memberNames);
                 }
+            })
+            ->where(function ($q) {
+                $q->whereNull('project_id')->orWhereHas('project');
             })
             ->first();
 

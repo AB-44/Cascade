@@ -16,6 +16,14 @@ class StateController extends Controller
         $user = $request->user();
 
         $goals = $user->goals()
+            // A goal whose project has been archived (soft-deleted) drops
+            // out of the active workspace entirely — whereHas('project')
+            // only matches when the related project still exists under
+            // the model's default (non-trashed) scope. Goals with no
+            // project at all (project_id null) are never filtered.
+            ->where(function ($q) {
+                $q->whereNull('project_id')->orWhereHas('project');
+            })
             ->with(['checklistItems', 'timeSessions'])
             ->orderBy('order_index')
             ->get()

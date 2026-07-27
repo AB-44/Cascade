@@ -26,6 +26,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/team-members', [TeamMemberController::class, 'sync']);
     Route::put('/projects', [ProjectController::class, 'sync']);
     Route::get('/my-projects', [ProjectController::class, 'myProjects']);
+    Route::get('/projects/archived', [ProjectController::class, 'archivedIndex']);
+    Route::get('/projects/archived/{project}', [ProjectController::class, 'showArchived']);
+    Route::post('/projects/{project}/archive', [ProjectController::class, 'archive']);
+    Route::post('/projects/{project}/restore', [ProjectController::class, 'restore']);
+    Route::delete('/projects/{project}/force', [ProjectController::class, 'forceDelete']);
     Route::put('/templates', [TemplateController::class, 'sync']);
 
     // Tasks assigned to me by someone else
