@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\ChecklistItem;
 use App\Models\Goal;
+use App\Models\Project;
 use App\Models\TeamMember;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -13,9 +14,16 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 class AssignedGoalController extends Controller
 {
     /**
-     * Every goal (owned by anyone) that's assigned to a team-member label
-     * linked to the current account. Read-only view of someone else's
-     * data, scoped down to just the tasks that concern this user.
+     * "My tasks": the union of two different things that both belong on this
+     * page —
+     *   1) goals owned by *someone else* but assigned to a team-member label
+     *      linked to this account (the original meaning of "assigned to me"),
+     *   2) every goal in one of *my own* private projects (is_shared=false),
+     *      regardless of who it's assigned to — these are solo projects
+     *      nobody else can see, so everything in them is inherently "mine".
+     * A goal in one of my *shared* projects does NOT show up here even if
+     * it's assigned to me — that one lives in the project itself, since
+     * other people are working alongside me on it.
      */
     public function index(Request $request)
     {
@@ -29,15 +37,29 @@ class AssignedGoalController extends Controller
         $memberIds   = $myMembers->pluck('id')->all();
         $memberNames = $myMembers->pluck('name')->all();
 
+        // My private-project ids: projects I own that aren't marked shared.
+        $myPrivateProjectIds = Project::where('user_id', $user->id)
+            ->where('is_shared', false)
+            ->pluck('id');
+
         // GoalForm persists assignedTo as the member's *name* (m.name), so we
         // must match on both the TeamMember UUID and the display name.
-        $goals = Goal::where(function ($q) use ($memberIds, $memberNames) {
-                $q->whereIn('assigned_to', $memberIds);
-                if ($memberNames) {
-                    $q->orWhereIn('assigned_to', $memberNames);
-                }
+        $goals = Goal::where(function ($q) use ($memberIds, $memberNames, $user, $myPrivateProjectIds) {
+                $q->where(function ($sub) use ($memberIds, $memberNames, $user) {
+                    $sub->where(function ($q2) use ($memberIds, $memberNames) {
+                        $q2->whereIn('assigned_to', $memberIds);
+                        if ($memberNames) {
+                            $q2->orWhereIn('assigned_to', $memberNames);
+                        }
+                    })->where('user_id', '!=', $user->id);
+                })
+                    ->orWhereIn('project_id', $myPrivateProjectIds)
+                    // Project-less goals have no sharing mechanism at all —
+                    // they're inherently private, so they belong here too.
+                    ->orWhere(function ($sub) use ($user) {
+                        $sub->whereNull('project_id')->where('user_id', $user->id);
+                    });
             })
-            ->where('user_id', '!=', $user->id)
             ->where('archived', false)
             // Skip anything whose project has been archived by its owner —
             // see the matching guard in StateController.
@@ -66,7 +88,18 @@ class AssignedGoalController extends Controller
             ->get(['id', 'project_id', 'name'])
             ->groupBy('project_id');
 
-        $goals = $goals->map(fn (Goal $goal) => $this->goalToJson($goal, $nodesByProject, $stagesByProject));
+        $myPrivateProjectIdSet = $myPrivateProjectIds->flip();
+
+        $goals = $goals->map(function (Goal $goal) use ($nodesByProject, $stagesByProject, $user, $myPrivateProjectIdSet) {
+            // "Personal" = it's mine because the *project* (or lack of one)
+            // is private to me — not because of who it's assigned to. Drives
+            // the My tasks page's two-section split (private vs assigned-by-
+            // others), independent of the assigned_to label.
+            $isPersonal = ($goal->project_id === null && $goal->user_id === $user->id)
+                || ($goal->project_id !== null && isset($myPrivateProjectIdSet[$goal->project_id]));
+
+            return $this->goalToJson($goal, $nodesByProject, $stagesByProject, $isPersonal);
+        });
 
         return response()->json(['goals' => $goals->values()]);
     }
@@ -178,12 +211,24 @@ class AssignedGoalController extends Controller
         $memberIds   = $myMembers->pluck('id')->all();
         $memberNames = $myMembers->pluck('name')->all();
 
+        $myPrivateProjectIds = Project::where('user_id', $user->id)
+            ->where('is_shared', false)
+            ->pluck('id');
+
         $goal = Goal::where('id', $goalId)
-            ->where(function ($q) use ($memberIds, $memberNames) {
-                $q->whereIn('assigned_to', $memberIds);
-                if ($memberNames) {
-                    $q->orWhereIn('assigned_to', $memberNames);
-                }
+            ->where(function ($q) use ($memberIds, $memberNames, $user, $myPrivateProjectIds) {
+                $q->where(function ($sub) use ($memberIds, $memberNames, $user) {
+                    $sub->where(function ($q2) use ($memberIds, $memberNames) {
+                        $q2->whereIn('assigned_to', $memberIds);
+                        if ($memberNames) {
+                            $q2->orWhereIn('assigned_to', $memberNames);
+                        }
+                    })->where('user_id', '!=', $user->id);
+                })
+                    ->orWhereIn('project_id', $myPrivateProjectIds)
+                    ->orWhere(function ($sub) use ($user) {
+                        $sub->whereNull('project_id')->where('user_id', $user->id);
+                    });
             })
             ->where(function ($q) {
                 $q->whereNull('project_id')->orWhereHas('project');
@@ -223,7 +268,7 @@ class AssignedGoalController extends Controller
         return ['id' => $node->id, 'name' => $node->name];
     }
 
-    private function goalToJson(Goal $goal, ?\Illuminate\Support\Collection $nodesByProject = null, ?\Illuminate\Support\Collection $stagesByProject = null): array
+    private function goalToJson(Goal $goal, ?\Illuminate\Support\Collection $nodesByProject = null, ?\Illuminate\Support\Collection $stagesByProject = null, bool $isPersonal = false): array
     {
         $stages = $goal->project_id && $stagesByProject
             ? $stagesByProject->get($goal->project_id, collect())
@@ -256,6 +301,7 @@ class AssignedGoalController extends Controller
             'stageName' => $stage['name'] ?? null,
             'availableStages' => $stages,
             'locked' => $goal->isInLockedStage(),
+            'isPersonal' => $isPersonal,
             'createdAt' => $goal->created_at?->toIso8601String(),
             'updatedAt' => $goal->updated_at?->toIso8601String(),
             'checklist' => $goal->checklistItems->map(fn ($item) => [

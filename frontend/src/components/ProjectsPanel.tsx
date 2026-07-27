@@ -250,6 +250,7 @@ function ProjectForm({
   );
   const [memberIds, setMemberIds] = useState<string[]>(project?.memberIds || []);
   const [sequentialLock, setSequentialLock] = useState(project?.sequentialLock ?? false);
+  const [isShared, setIsShared] = useState(project?.isShared ?? false);
 
   const toggleMember = (id: string) => {
     setMemberIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -257,7 +258,7 @@ function ProjectForm({
 
   const submit = () => {
     if (!name.trim()) return;
-    onSave({ name: name.trim(), description: description.trim(), color, memberIds, sequentialLock });
+    onSave({ name: name.trim(), description: description.trim(), color, memberIds, sequentialLock, isShared });
   };
 
   const inputCls =
@@ -327,6 +328,42 @@ function ProjectForm({
                   </button>
                 );
               })}
+            </div>
+          </div>
+
+          <div>
+            <label className={labelCls}>{t(lang, "projectVisibility")}</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setIsShared(false)}
+                className={`flex items-start gap-2.5 rounded-lg border p-3 text-start transition-colors duration-150 ${
+                  !isShared
+                    ? "border-terrace-500 bg-terrace-500/10"
+                    : "border-line hover:border-terrace-300 hover:bg-terrace-500/5"
+                }`}
+              >
+                <FolderDot size={16} className="mt-0.5 shrink-0 text-ink-soft" />
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-ink">{t(lang, "projectPrivate")}</span>
+                  <span className="mt-0.5 block text-xs text-ink-soft">{t(lang, "projectPrivateDesc")}</span>
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsShared(true)}
+                className={`flex items-start gap-2.5 rounded-lg border p-3 text-start transition-colors duration-150 ${
+                  isShared
+                    ? "border-terrace-500 bg-terrace-500/10"
+                    : "border-line hover:border-terrace-300 hover:bg-terrace-500/5"
+                }`}
+              >
+                <Users size={16} className="mt-0.5 shrink-0 text-ink-soft" />
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-ink">{t(lang, "projectShared")}</span>
+                  <span className="mt-0.5 block text-xs text-ink-soft">{t(lang, "projectSharedDesc")}</span>
+                </span>
+              </button>
             </div>
           </div>
 

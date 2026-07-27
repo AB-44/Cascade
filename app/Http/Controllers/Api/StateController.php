@@ -60,6 +60,7 @@ class StateController extends Controller
                     'color' => $p->color ?? '',
                     'memberIds' => $p->member_ids ?? [],
                     'sequentialLock' => (bool) $p->sequential_lock,
+                    'isShared' => (bool) $p->is_shared,
                     'createdAt' => $p->created_at?->toIso8601String(),
                 ]),
         ]);

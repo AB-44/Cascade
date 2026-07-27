@@ -46,15 +46,6 @@ function isSameDay(a: Date, b: Date) {
 function daysAgo(iso: string) {
   return (Date.now() - new Date(iso).getTime()) / 86400000;
 }
-function relativeDayLabel(iso: string) {
-  const d = new Date(iso);
-  const today = new Date();
-  const tomorrow = new Date();
-  tomorrow.setDate(today.getDate() + 1);
-  if (isSameDay(d, today)) return "اليوم";
-  if (isSameDay(d, tomorrow)) return "غدًا";
-  return d.toLocaleDateString("ar", { day: "numeric", month: "short" });
-}
 
 /** Breadcrumb badge: task name lives on the card title already, so this
  *  just traces (project ⬅ stage) — the two levels of context a bare task
@@ -86,9 +77,13 @@ export default function AssignedToMeView({ onGotoDeadlines }: { onGotoDeadlines:
   const [detailGoal, setDetailGoal] = useState<AssignedGoal | null>(null);
 
   const [search, setSearch] = useState("");
+  const [sourceTab, setSourceTab] = useState<"all" | "personal" | "assigned">("all");
   const [statusTab, setStatusTab] = useState<"all" | "in_progress" | "waiting" | "completed">("all");
   const [priorityFilter, setPriorityFilter] = useState<"all" | Priority>("all");
   const [sortBy, setSortBy] = useState<"deadline" | "priority" | "name">("deadline");
+  const [personalPage, setPersonalPage] = useState(1);
+  const [assignedPage, setAssignedPage] = useState(1);
+  const PAGE_SIZE = 10;
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const d = new Date();
     d.setDate(1);
@@ -161,8 +156,12 @@ export default function AssignedToMeView({ onGotoDeadlines }: { onGotoDeadlines:
   const completedThisWeek =
     goals?.filter((g) => g.status === "Completed" && daysAgo(g.updatedAt) <= 7).length ?? 0;
 
-  const filtered = useMemo(() => {
-    let list = goals ?? [];
+  const personalGoals = goals?.filter((g) => g.isPersonal) ?? [];
+  const assignedGoals = goals?.filter((g) => !g.isPersonal) ?? [];
+  const personalCompleted = personalGoals.filter((g) => g.status === "Completed").length;
+  const assignedCompleted = assignedGoals.filter((g) => g.status === "Completed").length;
+
+  const applyFilters = (list: AssignedGoal[]) => {
     if (statusTab === "in_progress") list = list.filter((g) => g.status === "In Progress" && !g.locked);
     else if (statusTab === "waiting") list = list.filter((g) => g.locked);
     else if (statusTab === "completed") list = list.filter((g) => g.status === "Completed");
@@ -179,23 +178,60 @@ export default function AssignedToMeView({ onGotoDeadlines }: { onGotoDeadlines:
       if (!b.deadline) return -1;
       return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
     });
-  }, [goals, statusTab, priorityFilter, search, sortBy]);
+  };
+
+  const filteredPersonal = useMemo(() => applyFilters(personalGoals), [goals, statusTab, priorityFilter, search, sortBy]);
+  const filteredAssigned = useMemo(() => applyFilters(assignedGoals), [goals, statusTab, priorityFilter, search, sortBy]);
+
+  // Reset to page 1 whenever the underlying filters change the result set.
+  useEffect(() => {
+    setPersonalPage(1);
+    setAssignedPage(1);
+  }, [statusTab, priorityFilter, search, sortBy, sourceTab]);
+
+  const personalPageCount = Math.max(1, Math.ceil(filteredPersonal.length / PAGE_SIZE));
+  const assignedPageCount = Math.max(1, Math.ceil(filteredAssigned.length / PAGE_SIZE));
+  const personalPageItems = filteredPersonal.slice((personalPage - 1) * PAGE_SIZE, personalPage * PAGE_SIZE);
+  const assignedPageItems = filteredAssigned.slice((assignedPage - 1) * PAGE_SIZE, assignedPage * PAGE_SIZE);
 
   const upcoming = useMemo(
     () =>
       (goals ?? [])
         .filter((g) => g.deadline && g.status !== "Completed")
         .sort((a, b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime())
-        .slice(0, 4),
+        .slice(0, 6),
     [goals],
   );
 
+  const upcomingGroups = useMemo(() => {
+    const today = new Date();
+    const tomorrow = new Date();
+    tomorrow.setDate(today.getDate() + 1);
+    const groups: { label: string; goals: AssignedGoal[] }[] = [
+      { label: "اليوم", goals: [] },
+      { label: "غدًا", goals: [] },
+      { label: "القادمة", goals: [] },
+    ];
+    for (const g of upcoming) {
+      const d = new Date(g.deadline!);
+      if (isSameDay(d, today)) groups[0].goals.push(g);
+      else if (isSameDay(d, tomorrow)) groups[1].goals.push(g);
+      else groups[2].goals.push(g);
+    }
+    return groups.filter((g) => g.goals.length > 0);
+  }, [upcoming]);
+
   const deadlineDays = useMemo(() => {
-    const map = new Map<string, number>();
+    const byDay = new Map<string, AssignedGoal[]>();
     for (const g of goals ?? []) {
       if (!g.deadline) continue;
       const key = new Date(g.deadline).toDateString();
-      map.set(key, (map.get(key) ?? 0) + 1);
+      byDay.set(key, [...(byDay.get(key) ?? []), g]);
+    }
+    const map = new Map<string, { count: number; color: string }>();
+    for (const [key, dayGoals] of byDay) {
+      const top = dayGoals.reduce((best, g) => (PRIORITY_RANK[g.priority] > PRIORITY_RANK[best.priority] ? g : best));
+      map.set(key, { count: dayGoals.length, color: top.color || priorityColor(top.priority) });
     }
     return map;
   }, [goals]);
@@ -207,7 +243,7 @@ export default function AssignedToMeView({ onGotoDeadlines }: { onGotoDeadlines:
           <Inbox size={18} strokeWidth={2.25} />
         </div>
         <div>
-          <h2 className="font-display text-xl font-semibold leading-tight text-ink">المهام المسندة لي</h2>
+          <h2 className="font-display text-xl font-semibold leading-tight text-ink">مهامي</h2>
           <p className="text-xs text-ink-soft">المهام والمشاريع المسندة إليك</p>
         </div>
       </div>
@@ -229,8 +265,27 @@ export default function AssignedToMeView({ onGotoDeadlines }: { onGotoDeadlines:
 
       {goals !== null && goals.length > 0 && (
         <>
+          {/* source tabs */}
+          <div className="flex flex-wrap rounded-lg border border-line bg-card p-1 sm:w-fit">
+            {[
+              { id: "all", label: "كل المهام" },
+              { id: "personal", label: "مهامي الخاصة" },
+              { id: "assigned", label: "المهام المسندة إليك" },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setSourceTab(tab.id as typeof sourceTab)}
+                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors duration-150 ${
+                  sourceTab === tab.id ? "bg-terrace-600 text-white" : "text-ink-soft hover:bg-terrace-500/10"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
           {/* stat tiles */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             <div className="terrace-card flex items-center gap-3 border border-line bg-card p-4">
               <ProgressRing value={overallProgress} />
               <div className="min-w-0">
@@ -239,10 +294,17 @@ export default function AssignedToMeView({ onGotoDeadlines }: { onGotoDeadlines:
               </div>
             </div>
             <StatTile
+              icon={User}
+              value={personalGoals.length}
+              label="مهامي الخاصة"
+              sub={`${personalCompleted} مكتملة`}
+              tint="text-green-600 bg-green-500/12"
+            />
+            <StatTile
               icon={CheckSquare}
-              value={total}
-              label="إجمالي المهام"
-              sub={`${completed} مكتملة`}
+              value={assignedGoals.length}
+              label="المهام المسندة إليك"
+              sub={`${assignedCompleted} مكتملة`}
               tint="text-terrace-600 bg-terrace-500/12"
             />
             <StatTile
@@ -326,13 +388,36 @@ export default function AssignedToMeView({ onGotoDeadlines }: { onGotoDeadlines:
                 </div>
               </div>
 
-              {filtered.length === 0 ? (
+              {filteredPersonal.length === 0 && filteredAssigned.length === 0 ? (
                 <p className="py-16 text-center text-sm text-ink-soft">ما فيه مهام تطابق البحث/الفلتر.</p>
               ) : (
-                <div className="space-y-2">
-                  {filtered.map((g) => (
-                    <TaskRow key={g.id} goal={g} onOpen={() => setDetailGoal(g)} />
-                  ))}
+                <div className="space-y-6">
+                  {sourceTab !== "assigned" && (
+                    <TaskSection
+                      title="مهامي الخاصة"
+                      icon={User}
+                      count={filteredPersonal.length}
+                      items={personalPageItems}
+                      page={personalPage}
+                      pageCount={personalPageCount}
+                      onPageChange={setPersonalPage}
+                      onOpen={setDetailGoal}
+                      emptyLabel="ما فيه مهام خاصة تطابق البحث/الفلتر."
+                    />
+                  )}
+                  {sourceTab !== "personal" && (
+                    <TaskSection
+                      title="المهام المسندة إليك"
+                      icon={CheckSquare}
+                      count={filteredAssigned.length}
+                      items={assignedPageItems}
+                      page={assignedPage}
+                      pageCount={assignedPageCount}
+                      onPageChange={setAssignedPage}
+                      onOpen={setDetailGoal}
+                      emptyLabel="ما فيه مهام مسندة تطابق البحث/الفلتر."
+                    />
+                  )}
                 </div>
               )}
             </div>
@@ -346,23 +431,29 @@ export default function AssignedToMeView({ onGotoDeadlines }: { onGotoDeadlines:
                 {upcoming.length === 0 ? (
                   <p className="text-xs text-ink-soft">ما فيه مواعيد قادمة.</p>
                 ) : (
-                  <div className="space-y-3">
-                    {upcoming.map((g) => (
-                      <button
-                        key={g.id}
-                        onClick={() => setDetailGoal(g)}
-                        className="flex w-full items-start gap-2.5 text-start"
-                      >
-                        <span
-                          className="mt-1.5 h-2 w-2 shrink-0 rounded-full"
-                          style={{ backgroundColor: g.color || priorityColor(g.priority) }}
-                        />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[11px] font-semibold text-terrace-600">{relativeDayLabel(g.deadline!)}</p>
-                          <p className="truncate text-sm font-medium text-ink">{g.name}</p>
-                          {g.projectName && <p className="truncate text-[11px] text-ink-soft">{g.projectName}</p>}
+                  <div className="space-y-4">
+                    {upcomingGroups.map((group) => (
+                      <div key={group.label}>
+                        <p className="mb-1.5 text-[11px] font-semibold text-terrace-600">{group.label}</p>
+                        <div className="space-y-2.5">
+                          {group.goals.map((g) => (
+                            <button
+                              key={g.id}
+                              onClick={() => setDetailGoal(g)}
+                              className="flex w-full items-start gap-2.5 text-start"
+                            >
+                              <span
+                                className="mt-1.5 h-2 w-2 shrink-0 rounded-full"
+                                style={{ backgroundColor: g.color || priorityColor(g.priority) }}
+                              />
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm font-medium text-ink">{g.name}</p>
+                                {g.projectName && <p className="truncate text-[11px] text-ink-soft">{g.projectName}</p>}
+                              </div>
+                            </button>
+                          ))}
                         </div>
-                      </button>
+                      </div>
                     ))}
                   </div>
                 )}
@@ -451,7 +542,7 @@ function MiniCalendar({
 }: {
   month: Date;
   onChangeMonth: (d: Date) => void;
-  deadlineDays: Map<string, number>;
+  deadlineDays: Map<string, { count: number; color: string }>;
 }) {
   const year = month.getFullYear();
   const m = month.getMonth();
@@ -491,7 +582,7 @@ function MiniCalendar({
         {cells.map((d, i) => {
           if (!d) return <span key={i} />;
           const isToday = isSameDay(d, today);
-          const count = deadlineDays.get(d.toDateString()) ?? 0;
+          const day = deadlineDays.get(d.toDateString());
           return (
             <div key={i} className="flex flex-col items-center">
               <span
@@ -502,7 +593,9 @@ function MiniCalendar({
                 {d.getDate()}
               </span>
               <span
-                className={`mt-0.5 h-1 w-1 rounded-full ${count > 0 ? "bg-gold-500" : "bg-transparent"}`}
+                className="mt-0.5 h-1 w-1 rounded-full"
+                style={{ backgroundColor: day ? day.color : "transparent" }}
+                title={day ? `${day.count} من المهام` : undefined}
               />
             </div>
           );
@@ -572,6 +665,103 @@ function TaskRow({ goal, onOpen }: { goal: AssignedGoal; onOpen: () => void }) {
         )}
       </div>
     </button>
+  );
+}
+
+/** One of the two "My tasks" sections (private / assigned-by-others) —
+ *  its own header + count + row list + independent page-number
+ *  pagination, so paging one section never disturbs the other. */
+function TaskSection({
+  title,
+  icon: Icon,
+  count,
+  items,
+  page,
+  pageCount,
+  onPageChange,
+  onOpen,
+  emptyLabel,
+}: {
+  title: string;
+  icon: typeof User;
+  count: number;
+  items: AssignedGoal[];
+  page: number;
+  pageCount: number;
+  onPageChange: (page: number) => void;
+  onOpen: (goal: AssignedGoal) => void;
+  emptyLabel: string;
+}) {
+  return (
+    <div>
+      <div className="mb-2 flex items-center gap-2">
+        <Icon size={15} className="text-ink-soft" />
+        <h3 className="text-sm font-semibold text-ink">{title}</h3>
+        <span className="rounded-full bg-basin-2 px-2 py-0.5 text-[11px] font-medium text-ink-soft">{count}</span>
+      </div>
+      {items.length === 0 ? (
+        <p className="rounded-lg border border-dashed border-line py-8 text-center text-xs text-ink-soft">
+          {emptyLabel}
+        </p>
+      ) : (
+        <>
+          <div className="space-y-2">
+            {items.map((g) => (
+              <TaskRow key={g.id} goal={g} onOpen={() => onOpen(g)} />
+            ))}
+          </div>
+          <Pagination page={page} pageCount={pageCount} onPageChange={onPageChange} />
+        </>
+      )}
+    </div>
+  );
+}
+
+/** Page-number pagination (1, 2, 3…) — kept simple (no ellipsis
+ *  collapsing) since each section here realistically spans a handful
+ *  of pages, not hundreds. */
+function Pagination({
+  page,
+  pageCount,
+  onPageChange,
+}: {
+  page: number;
+  pageCount: number;
+  onPageChange: (page: number) => void;
+}) {
+  if (pageCount <= 1) return null;
+  const pages = Array.from({ length: pageCount }, (_, i) => i + 1);
+
+  return (
+    <div className="mt-3 flex items-center justify-center gap-1">
+      <button
+        onClick={() => onPageChange(Math.max(1, page - 1))}
+        disabled={page === 1}
+        className="flex h-7 w-7 items-center justify-center rounded-md text-ink-soft transition-colors duration-150 hover:bg-terrace-500/10 disabled:opacity-30"
+        aria-label="السابق"
+      >
+        <ChevronRight size={15} className="rtl:rotate-180" />
+      </button>
+      {pages.map((p) => (
+        <button
+          key={p}
+          onClick={() => onPageChange(p)}
+          className={`flex h-7 min-w-7 items-center justify-center rounded-md px-2 font-mono-num text-xs font-medium transition-colors duration-150 ${
+            p === page ? "bg-terrace-600 text-white" : "text-ink-soft hover:bg-terrace-500/10"
+          }`}
+        >
+          {p}
+        </button>
+      ))}
+      <button
+        onClick={() => onPageChange(Math.min(pageCount, page + 1))}
+        disabled={page === pageCount}
+        className="flex h-7 w-7 items-center justify-center rounded-md text-ink-soft transition-colors duration-150 hover:bg-terrace-500/10 disabled:opacity-30"
+        aria-label="التالي"
+      >
+        <ChevronLeft size={15} className="rtl:rotate-180" />
+      </button>
+    </div>
   );
 }
 

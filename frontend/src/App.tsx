@@ -381,7 +381,7 @@ function Shell() {
               className="topbar-nav-item relative inline-flex h-9 items-center justify-center gap-0 rounded-lg px-2 text-ink-soft hover:bg-terrace-50"
             >
               <Mail size={19} className="shrink-0" />
-              <span className="topbar-nav-text text-sm font-medium">دعوات</span>
+              <span className="topbar-nav-text text-sm font-medium">دعوات المشاريع</span>
               {pendingInvitationsCount > 0 && (
                 <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
                   {pendingInvitationsCount}
@@ -394,7 +394,7 @@ function Shell() {
               className="topbar-nav-item inline-flex h-9 items-center justify-center gap-0 rounded-lg px-2 text-ink-soft hover:bg-terrace-50"
             >
               <Share2 size={19} className="shrink-0" />
-              <span className="topbar-nav-text text-sm font-medium">مشاريع مشتركة</span>
+              <span className="topbar-nav-text text-sm font-medium">مشاريع مشتركة معي</span>
             </button>
             <span
               title={
@@ -482,7 +482,6 @@ function Shell() {
       </header>
 
       {/* Toolbar */}
-      {view !== "assigned" && (
       <div className="no-print mx-auto max-w-[1700px] px-4 pt-5">
         <div className="flex flex-wrap items-center gap-2">
           {/* view switcher */}
@@ -720,11 +719,10 @@ function Shell() {
           </div>
         )}
       </div>
-      )}
 
       {/* Main content */}
       <main className="mx-auto max-w-[1700px] px-4 py-6">
-        {view !== "assigned" && view !== "projects" && (
+        {view !== "projects" && (
         <div className="no-print mb-4 flex flex-wrap items-center gap-4 text-sm font-semibold text-ink-soft">
           <span className="flex items-center gap-1.5"><FolderDot size={16} className="text-terrace-500" /> {currentProjectLabel}</span>
           <span className="text-line">|</span>

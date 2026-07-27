@@ -73,6 +73,7 @@ class ProjectController extends Controller
                     'completedCount' => $completed,
                     'progressPct' => $total > 0 ? (int) round($completed / $total * 100) : 0,
                     'status' => $status,
+                    'isShared' => $project->is_shared,
                     'latestDeadline' => $stats->latest_deadline ?? null,
                     'createdAt' => $project->created_at?->toIso8601String(),
                 ];
@@ -98,6 +99,7 @@ class ProjectController extends Controller
                         'color' => $p['color'] ?? '',
                         'member_ids' => $p['memberIds'] ?? [],
                         'sequential_lock' => $p['sequentialLock'] ?? false,
+                        'is_shared' => $p['isShared'] ?? false,
                     ]
                 );
 

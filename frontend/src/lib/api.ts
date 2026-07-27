@@ -220,6 +220,7 @@ export interface AssignedGoal {
   stageName: string | null;
   availableStages: { id: string; name: string }[];
   locked: boolean;
+  isPersonal: boolean; // true = from one of the user's own private projects (or no project); false = assigned by someone else
   createdAt: string;
   updatedAt: string;
   checklist: AssignedChecklistItem[];

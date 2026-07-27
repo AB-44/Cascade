@@ -106,6 +106,8 @@ export interface Project {
   color: string;
   memberIds: string[]; // Team members associated with this project
   sequentialLock: boolean; // lock stage N+1 until stage N is Completed
+  isShared: boolean; // false = private/solo project; true = shared with others
+  archived?: boolean;
   createdAt: string;
 }
 
