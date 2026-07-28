@@ -11,6 +11,9 @@ export interface ReminderItem {
   goal: Goal;
   kind: "overdue" | "today" | "soon" | "reminder" | "break";
   text: string;
+  /** Optional secondary line with more specifics (e.g. checklist count),
+   *  shown under the title. Omitted when there's nothing extra to say. */
+  detail?: string;
 }
 
 const reminderPrefix = (lang: Lang) => (lang === "ar" ? "تذكير: " : "Reminder: ");
@@ -24,6 +27,20 @@ const breakText = (lang: Lang, name: string) =>
   lang === "ar"
     ? `لقد مضت ساعة على بدء "${name}" — وقت أخذ استراحة قصيرة`
     : `It's been an hour on "${name}" — time for a short break`;
+
+/** A short, honest second line built from real goal data — never invented
+ *  text. Returns undefined when there's nothing meaningful to add. */
+function detailFor(g: Goal, lang: Lang): string | undefined {
+  const total = g.checklist?.length ?? 0;
+  const done = g.checklist?.filter((c) => c.done).length ?? 0;
+  if (total > 0) {
+    return lang === "ar" ? `${done}/${total} من المهام الفرعية مكتملة` : `${done}/${total} subtasks complete`;
+  }
+  if (g.assignedTo) {
+    return lang === "ar" ? `مسندة إلى ${g.assignedTo}` : `Assigned to ${g.assignedTo}`;
+  }
+  return undefined;
+}
 
 const ONE_HOUR_MS = 60 * 60 * 1000;
 
@@ -42,11 +59,11 @@ export function useReminders() {
     for (const g of goals) {
       if (g.archived || g.status === "Completed") continue;
       const ds = deadlineState(g.deadline, g.status);
-      if (ds === "overdue") out.push({ key: `${g.id}:overdue`, goal: g, kind: "overdue", text: overdueText(lang, g.name) });
-      else if (ds === "today") out.push({ key: `${g.id}:today`, goal: g, kind: "today", text: todayText(lang, g.name) });
-      else if (ds === "soon") out.push({ key: `${g.id}:soon`, goal: g, kind: "soon", text: soonText(lang, g.name) });
+      if (ds === "overdue") out.push({ key: `${g.id}:overdue`, goal: g, kind: "overdue", text: overdueText(lang, g.name), detail: detailFor(g, lang) });
+      else if (ds === "today") out.push({ key: `${g.id}:today`, goal: g, kind: "today", text: todayText(lang, g.name), detail: detailFor(g, lang) });
+      else if (ds === "soon") out.push({ key: `${g.id}:soon`, goal: g, kind: "soon", text: soonText(lang, g.name), detail: detailFor(g, lang) });
       if (g.reminder && g.reminderAt && new Date(g.reminderAt).getTime() <= now) {
-        out.push({ key: `${g.id}:reminder:${g.reminderAt}`, goal: g, kind: "reminder", text: reminderPrefix(lang) + g.name });
+        out.push({ key: `${g.id}:reminder:${g.reminderAt}`, goal: g, kind: "reminder", text: reminderPrefix(lang) + g.name, detail: detailFor(g, lang) });
       }
       if (
         g.startedAt &&

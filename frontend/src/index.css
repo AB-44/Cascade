@@ -288,7 +288,7 @@ input[type="range"] {
   opacity: 0;
   max-width: 0;
   margin-inline-start: 0;
-  transition: opacity 0.2s ease, max-width 0.25s ease, margin-inline-start 0.25s ease;
+  transition: opacity 0.10s ease, max-width 0.60s ease, margin-inline-start 0.25s ease;
   overflow: hidden;
   white-space: nowrap;
 }

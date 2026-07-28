@@ -1,13 +1,27 @@
 import { useEffect, useRef, useState } from "react";
-import { Bell, AlertTriangle, CalendarClock, BellRing, Coffee, X } from "lucide-react";
-import { useReminders, requestNotificationPermission } from "../lib/useReminders";
+import { Bell, AlertTriangle, CalendarClock, BellRing, Coffee, Settings, ArrowLeft, X } from "lucide-react";
+import { useReminders, requestNotificationPermission, type ReminderItem } from "../lib/useReminders";
 import { useStore } from "../store";
 import { t } from "../lib/i18n";
+
+const KIND_STYLE: Record<
+  ReminderItem["kind"],
+  { accent: string; iconColor: string; icon: typeof AlertTriangle }
+> = {
+  overdue: { accent: "#B04632", iconColor: "text-clay", icon: AlertTriangle },
+  today: { accent: "#C9973B", iconColor: "text-gold-600", icon: CalendarClock },
+  soon: { accent: "#C9973B", iconColor: "text-gold-600", icon: CalendarClock },
+  reminder: { accent: "#1F6E5C", iconColor: "text-terrace-600", icon: BellRing },
+  break: { accent: "#1F6E5C", iconColor: "text-terrace-600", icon: Coffee },
+};
+
+const PAGE_SIZE = 3;
 
 export default function NotificationBell({ onGoto }: { onGoto: (id: string) => void }) {
   const { items, dismiss } = useReminders();
   const { lang } = useStore();
   const [open, setOpen] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -18,14 +32,15 @@ export default function NotificationBell({ onGoto }: { onGoto: (id: string) => v
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
-  const count = items.length;
+  // Reset how many are shown each time the panel is reopened, so it
+  // doesn't stay expanded from a previous session.
+  useEffect(() => {
+    if (open) setVisibleCount(PAGE_SIZE);
+  }, [open]);
 
-  const icon = (kind: string) => {
-    if (kind === "overdue") return <AlertTriangle size={15} className="text-red-500" />;
-    if (kind === "reminder") return <BellRing size={15} className="text-terrace-500" />;
-    if (kind === "break") return <Coffee size={15} className="text-emerald-500" />;
-    return <CalendarClock size={15} className="text-amber-500" />;
-  };
+  const count = items.length;
+  const visibleItems = items.slice(0, visibleCount);
+  const hasMore = count > visibleCount;
 
   return (
     <div className="relative" ref={ref}>
@@ -44,35 +59,60 @@ export default function NotificationBell({ onGoto }: { onGoto: (id: string) => v
           </span>
         )}
       </button>
+
       {open && (
-        <div className="absolute end-0 z-50 mt-2 w-80 overflow-hidden rounded-xl border border-line bg-card shadow-xl animate-menu-in">
-          <div className="border-b border-line px-4 py-3 text-sm font-bold text-ink">
-            {t(lang, "notifications")}
+        <div className="absolute end-0 z-50 mt-2 w-96 overflow-hidden rounded-xl border border-line bg-card shadow-xl animate-menu-in">
+          <div className="flex items-center justify-between border-b border-line px-4 py-3">
+            <span className="text-sm font-bold text-ink">{t(lang, "notifications")}</span>
+            <button
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-1 text-xs font-medium text-ink-soft transition-colors duration-150 hover:text-ink"
+            >
+              {t(lang, "closeAll")}
+              <ArrowLeft size={13} className="rtl:rotate-180" />
+            </button>
           </div>
-          <div className="max-h-80 overflow-y-auto p-3">
-            {count === 0 ? (
-              <p className="px-2 py-8 text-center text-sm text-ink-soft">{t(lang, "allCaughtUp")}</p>
-            ) : (
-              <div className="notif-stack" data-peek={items.length > 1}>
-                {items.slice(0, 3).map((it) => {
-                  const index = items.indexOf(it);
+
+          {count === 0 ? (
+            <div className="flex flex-col items-center gap-2 px-6 py-10 text-center">
+              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-basin-2 text-ink-soft">
+                <Bell size={20} />
+              </span>
+              <p className="text-sm font-semibold text-ink">{t(lang, "noNewNotifications")}</p>
+              <p className="text-xs text-ink-soft">{t(lang, "allCaughtUp")}</p>
+            </div>
+          ) : (
+            <div className="max-h-96 overflow-y-auto p-2.5">
+              <div className="space-y-2">
+                {visibleItems.map((it) => {
+                  const style = KIND_STYLE[it.kind];
+                  const Icon = style.icon;
                   return (
                     <div
                       key={it.key}
-                      style={{ zIndex: 3 - index }}
-                      className="terrace-card notif-stack-card group relative flex w-full items-center gap-3 px-4 py-3"
+                      className="group relative flex items-stretch gap-3 overflow-hidden rounded-lg bg-basin-2/50 ps-4 pe-2 py-2.5 transition-colors duration-150 hover:bg-basin-2"
                     >
+                      <span
+                        className="absolute inset-y-0 start-0 w-1 rounded-e-full"
+                        style={{ backgroundColor: style.accent }}
+                      />
                       <button
                         onClick={() => {
                           onGoto(it.goal.id);
                           setOpen(false);
                         }}
-                        className="flex min-w-0 flex-1 items-center gap-3 text-start"
+                        className="flex min-w-0 flex-1 items-start gap-2.5 text-start"
                       >
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-line bg-card">
-                          {icon(it.kind)}
+                        <span className={`mt-0.5 shrink-0 ${style.iconColor}`}>
+                          <Icon size={17} />
                         </span>
-                        <span className="min-w-0 text-sm text-ink">{it.text}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-semibold text-ink">{it.text}</span>
+                          {it.detail && (
+                            <span className="mt-0.5 block truncate text-xs text-ink-soft">{it.detail}</span>
+                          )}
+                        </span>
+                        <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-terrace-500" />
                       </button>
                       <button
                         onClick={(e) => {
@@ -80,7 +120,7 @@ export default function NotificationBell({ onGoto }: { onGoto: (id: string) => v
                           dismiss(it.key);
                         }}
                         aria-label={t(lang, "dismissNotification")}
-                        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-ink-soft opacity-0 transition hover:bg-basin-2 hover:text-ink group-hover:opacity-100"
+                        className="flex h-6 w-6 shrink-0 items-center justify-center self-start rounded-full text-ink-soft opacity-0 transition-opacity duration-150 hover:bg-card hover:text-ink group-hover:opacity-100"
                       >
                         <X size={13} />
                       </button>
@@ -88,11 +128,31 @@ export default function NotificationBell({ onGoto }: { onGoto: (id: string) => v
                   );
                 })}
               </div>
-            )}
-            {count > 3 && (
-              <p className="mt-2 px-2 text-center text-xs text-ink-soft">
-                +{count - 3} {t(lang, "notifications")}
-              </p>
+
+              {hasMore && (
+                <button
+                  onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+                  className="mt-2 w-full rounded-lg py-2 text-center text-xs font-medium text-ink-soft transition-colors duration-150 hover:bg-basin-2 hover:text-ink"
+                >
+                  +{count - visibleCount} {t(lang, "notifications")}
+                </button>
+              )}
+            </div>
+          )}
+
+          <div className="flex items-center justify-between border-t border-line px-4 py-2.5">
+            <span className="flex items-center gap-1.5 text-xs font-medium text-ink-soft">
+              <Settings size={13} />
+              {t(lang, "settings")}
+            </span>
+            {count > 0 && (
+              <button
+                onClick={() => setVisibleCount(count)}
+                className="flex items-center gap-1 text-xs font-medium text-terrace-600 transition-colors duration-150 hover:text-terrace-700"
+              >
+                {t(lang, "viewAllNotifications")}
+                <ArrowLeft size={13} className="rtl:rotate-180" />
+              </button>
             )}
           </div>
         </div>
