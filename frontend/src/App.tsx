@@ -50,6 +50,7 @@ import TeamPanel from "./components/TeamPanel";
 import ProjectsPanel from "./components/ProjectsPanel";
 import ProjectsPage from "./components/ProjectsPage";
 import ProjectDetailPage from "./components/ProjectDetailPage";
+import ProjectSettingsModal from "./components/ProjectSettingsModal";
 import AssignedToMeView from "./components/AssignedToMeView";
 import InvitationsPanel from "./components/InvitationsPanel";
 import SharedProjectsPanel from "./components/SharedProjectsPanel";
@@ -81,6 +82,8 @@ function Shell() {
   const [roadmapOwnerId, setRoadmapOwnerId] = useState<string | null>(null);
   const [currentProjectId, setCurrentProjectId] = useState<string>(() => loadCurrentProjectId());
   const [pendingGoalScrollId, setPendingGoalScrollId] = useState<string | null>(null);
+  const [projectsPanelCreateMode, setProjectsPanelCreateMode] = useState(false);
+  const [projectSettingsTab, setProjectSettingsTab] = useState<"general" | "members" | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const filterRowMounted = useMountTransition(filterOpen, 150);
@@ -780,6 +783,10 @@ function Shell() {
             <ProjectsPage
               refreshKey={projectsRefreshKey}
               onManage={() => setShowProjects(true)}
+              onNewProject={() => {
+                setProjectsPanelCreateMode(true);
+                setShowProjects(true);
+              }}
               onOpenProject={(projectId) => {
                 setCurrentProjectId(projectId);
                 clearFilters();
@@ -791,10 +798,7 @@ function Shell() {
               project={activeProject}
               onOpenRoadmap={() => setView("roadmap")}
               onBack={() => setView("projects")}
-              onManageProject={() => {
-                setProjectsPanelTarget(activeProject.id);
-                setShowProjects(true);
-              }}
+              onManageProject={(tab) => setProjectSettingsTab(tab ?? "general")}
               onExportReport={() => doExport("pdf")}
             />
           ) : view === "archive" ? (
@@ -824,6 +828,7 @@ function Shell() {
                   onAddChild={(p) => openNew(p)}
                   filter={filterFn}
                   sequentialLock={activeProject?.sequentialLock ?? false}
+                  allowNewGoals={activeProject?.allowNewGoals ?? true}
                 />
               )}
               {(search || activeFilterCount > 0) &&
@@ -861,16 +866,30 @@ function Shell() {
       {showProjects && (
         <ProjectsPanel
           initialEditProjectId={projectsPanelTarget}
+          startInCreateMode={projectsPanelCreateMode}
           onClose={() => {
             setShowProjects(false);
             setProjectsPanelTarget(undefined);
+            setProjectsPanelCreateMode(false);
             setProjectsRefreshKey((k) => k + 1);
           }}
           onOpenProject={(projectId) => {
             setCurrentProjectId(projectId);
             setShowProjects(false);
             setProjectsPanelTarget(undefined);
+            setProjectsPanelCreateMode(false);
             clearFilters();
+          }}
+        />
+      )}
+      {projectSettingsTab && activeProject && (
+        <ProjectSettingsModal
+          project={activeProject}
+          initialTab={projectSettingsTab}
+          onClose={() => setProjectSettingsTab(null)}
+          onOpenProject={() => {
+            setProjectSettingsTab(null);
+            setView("projectDetail");
           }}
         />
       )}

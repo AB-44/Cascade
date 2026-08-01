@@ -33,14 +33,15 @@ interface Props {
   onClose: () => void;
   onOpenProject: (projectId: string) => void;
   initialEditProjectId?: string;
+  startInCreateMode?: boolean;
 }
 
-const PROJECT_COLORS = [
+export const PROJECT_COLORS = [
   "#6366f1", "#06b6d4", "#22c55e", "#f59e0b",
   "#ef4444", "#ec4899", "#8b5cf6", "#64748b",
 ];
 
-export default function ProjectsPanel({ onClose, onOpenProject, initialEditProjectId }: Props) {
+export default function ProjectsPanel({ onClose, onOpenProject, initialEditProjectId, startInCreateMode }: Props) {
   const { closing, requestClose } = useClosing(onClose);
   const { projects, addProject, updateProject, archiveProjectLocally, goals, members, lang } = useStore();
   const [archivingId, setArchivingId] = useState<string | null>(null);
@@ -48,7 +49,7 @@ export default function ProjectsPanel({ onClose, onOpenProject, initialEditProje
   const [editing, setEditing] = useState<Project | null>(
     () => projects.find((p) => p.id === initialEditProjectId) ?? null,
   );
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState(!!startInCreateMode);
 
   const goalsByProject = (projectId: string) =>
     goals.filter((g) => !g.archived && g.projectId === projectId).length;
@@ -273,7 +274,18 @@ function ProjectForm({
 
   const submit = () => {
     if (!name.trim()) return;
-    onSave({ name: name.trim(), description: description.trim(), color, memberIds, sequentialLock, isShared });
+    onSave({
+      name: name.trim(),
+      description: description.trim(),
+      color,
+      image: project?.image ?? null,
+      memberIds,
+      sequentialLock,
+      isShared,
+      lifecycleStatus: project?.lifecycleStatus ?? "active",
+      showOnDashboard: project?.showOnDashboard ?? true,
+      allowNewGoals: project?.allowNewGoals ?? true,
+    });
   };
 
   const inputCls =
@@ -466,7 +478,7 @@ function ProjectForm({
   );
 }
 
-function ProjectCollaboratorsSection({ projectId }: { projectId: string }) {
+export function ProjectCollaboratorsSection({ projectId }: { projectId: string }) {
   const [collaborators, setCollaborators] = useState<ProjectCollaboratorInfo[] | null>(null);
   const [invitations, setInvitations] = useState<ProjectInvitationInfo[]>([]);
   const [email, setEmail] = useState("");

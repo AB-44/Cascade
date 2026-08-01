@@ -16,6 +16,7 @@ interface Props {
   onAddChild: (parentId: string) => void;
   filter: (g: Goal) => boolean;
   sequentialLock?: boolean;
+  allowNewGoals?: boolean;
 }
 
 function filterTree(nodes: TreeNode[], filter: (g: Goal) => boolean): TreeNode[] {
@@ -29,7 +30,7 @@ function filterTree(nodes: TreeNode[], filter: (g: Goal) => boolean): TreeNode[]
   return out;
 }
 
-export default function RoadmapView({ onEdit, onAddChild, filter, sequentialLock = false }: Props) {
+export default function RoadmapView({ onEdit, onAddChild, filter, sequentialLock = false, allowNewGoals = true }: Props) {
   const tree = useTree(false);
   const { goals, effProgress, lang, updateGoal } = useStore();
   const stages = filterTree(tree, filter);
@@ -77,13 +78,15 @@ export default function RoadmapView({ onEdit, onAddChild, filter, sequentialLock
                     <Lock size={14} className="text-ink-soft" />
                   ) : (
                     <div className="flex">
-                      <button
-                        onClick={() => onAddChild(stage.goal.id)}
-                        title={t(lang, "addSubGoal")}
-                        className="rounded p-1 text-ink-soft transition-colors duration-150 hover:bg-terrace-500/10 hover:text-terrace-600"
-                      >
-                        <Plus size={14} />
-                      </button>
+                      {allowNewGoals && (
+                        <button
+                          onClick={() => onAddChild(stage.goal.id)}
+                          title={t(lang, "addSubGoal")}
+                          className="rounded p-1 text-ink-soft transition-colors duration-150 hover:bg-terrace-500/10 hover:text-terrace-600"
+                        >
+                          <Plus size={14} />
+                        </button>
+                      )}
                       <button
                         onClick={() => onEdit(stage.goal)}
                         title={t(lang, "edit")}

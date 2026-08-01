@@ -104,10 +104,14 @@ export interface Project {
   name: string;
   description: string;
   color: string;
+  image?: string | null; // data URL, like team member avatars
   memberIds: string[]; // Team members associated with this project
   sequentialLock: boolean; // lock stage N+1 until stage N is Completed
   isShared: boolean; // false = private/solo project; true = shared with others
   archived?: boolean;
+  lifecycleStatus: "active" | "paused" | "completed"; // manually set by the owner — distinct from any derived progress status
+  showOnDashboard: boolean;
+  allowNewGoals: boolean; // when false, no new goals can be added under this project
   createdAt: string;
 }
 

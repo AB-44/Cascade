@@ -23,6 +23,11 @@ class SyncProjectsRequest extends FormRequest
             'projects.*.memberIds.*' => ['string'],
             'projects.*.sequentialLock' => ['sometimes', 'boolean'],
             'projects.*.archived' => ['sometimes', 'boolean'],
+            'projects.*.isShared' => ['sometimes', 'boolean'],
+            'projects.*.image' => ['sometimes', 'nullable', 'string'],
+            'projects.*.lifecycleStatus' => ['sometimes', 'string', 'in:active,paused,completed'],
+            'projects.*.showOnDashboard' => ['sometimes', 'boolean'],
+            'projects.*.allowNewGoals' => ['sometimes', 'boolean'],
         ];
     }
 }

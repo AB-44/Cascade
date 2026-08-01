@@ -58,9 +58,13 @@ class StateController extends Controller
                     'name' => $p->name,
                     'description' => $p->description ?? '',
                     'color' => $p->color ?? '',
+                    'image' => $p->image,
                     'memberIds' => $p->member_ids ?? [],
                     'sequentialLock' => (bool) $p->sequential_lock,
                     'isShared' => (bool) $p->is_shared,
+                    'lifecycleStatus' => $p->status,
+                    'showOnDashboard' => (bool) $p->show_on_dashboard,
+                    'allowNewGoals' => (bool) $p->allow_new_goals,
                     'createdAt' => $p->created_at?->toIso8601String(),
                 ]),
         ]);

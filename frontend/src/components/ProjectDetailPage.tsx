@@ -32,7 +32,7 @@ import ConfirmModal from "./ConfirmModal";
 interface Props {
   project: Project;
   onOpenRoadmap: () => void;
-  onManageProject: () => void;
+  onManageProject: (tab?: "general" | "members") => void;
   onExportReport: () => void;
   onBack?: () => void;
   onOpenArchive?: () => void;
@@ -266,14 +266,14 @@ export default function ProjectDetailPage({ project, onOpenRoadmap, onManageProj
         {/* Quick actions */}
         <div className="mt-4 flex flex-wrap gap-2">
           <button
-            onClick={onManageProject}
+            onClick={() => onManageProject("members")}
             className="inline-flex items-center gap-1.5 rounded-lg bg-terrace-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition-colors duration-150 hover:bg-terrace-700"
           >
             <UserPlus size={15} />
             دعوة متعاون
           </button>
           <button
-            onClick={onManageProject}
+            onClick={() => onManageProject("general")}
             className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-2 text-sm font-medium text-ink-soft transition-colors duration-150 hover:bg-ink/5"
           >
             <Settings2 size={15} />
@@ -397,7 +397,7 @@ export default function ProjectDetailPage({ project, onOpenRoadmap, onManageProj
           <div className="mb-3 flex items-center justify-between gap-2">
             <h2 className="font-display text-base font-semibold text-ink">فريق المشروع</h2>
             <button
-              onClick={onManageProject}
+              onClick={() => onManageProject("members")}
               className="inline-flex items-center gap-1 rounded-lg border border-line px-2.5 py-1.5 text-xs font-medium text-ink-soft transition-colors duration-150 hover:bg-ink/5"
             >
               <UserPlus size={13} />

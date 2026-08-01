@@ -15,12 +15,17 @@ class Project extends Model
     public $incrementing = false;
     protected $keyType = 'string';
 
-    protected $fillable = ['id', 'user_id', 'name', 'description', 'color', 'member_ids', 'sequential_lock', 'is_shared'];
+    protected $fillable = [
+        'id', 'user_id', 'name', 'description', 'color', 'image', 'member_ids',
+        'sequential_lock', 'is_shared', 'status', 'show_on_dashboard', 'allow_new_goals',
+    ];
 
     protected $casts = [
         'member_ids' => 'array',
         'sequential_lock' => 'boolean',
         'is_shared' => 'boolean',
+        'show_on_dashboard' => 'boolean',
+        'allow_new_goals' => 'boolean',
     ];
 
     public function user(): BelongsTo

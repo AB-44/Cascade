@@ -65,6 +65,7 @@ class ProjectController extends Controller
                     'name' => $project->name,
                     'description' => $project->description ?? '',
                     'color' => $project->color ?? '',
+                    'image' => $project->image,
                     'role' => $project->pivot->role,
                     'ownerName' => $project->user?->name ?? '',
                     'memberCount' => $project->member_count,
@@ -74,6 +75,12 @@ class ProjectController extends Controller
                     'progressPct' => $total > 0 ? (int) round($completed / $total * 100) : 0,
                     'status' => $status,
                     'isShared' => $project->is_shared,
+                    // Manually set by the owner in project settings — distinct
+                    // from `status` above, which is always derived from goal
+                    // completion and never stored.
+                    'lifecycleStatus' => $project->status,
+                    'showOnDashboard' => $project->show_on_dashboard,
+                    'allowNewGoals' => $project->allow_new_goals,
                     'latestDeadline' => $stats->latest_deadline ?? null,
                     'createdAt' => $project->created_at?->toIso8601String(),
                 ];
@@ -97,9 +104,13 @@ class ProjectController extends Controller
                         'name' => $p['name'],
                         'description' => $p['description'] ?? '',
                         'color' => $p['color'] ?? '',
+                        'image' => $p['image'] ?? null,
                         'member_ids' => $p['memberIds'] ?? [],
                         'sequential_lock' => $p['sequentialLock'] ?? false,
                         'is_shared' => $p['isShared'] ?? false,
+                        'status' => $p['lifecycleStatus'] ?? 'active',
+                        'show_on_dashboard' => $p['showOnDashboard'] ?? true,
+                        'allow_new_goals' => $p['allowNewGoals'] ?? true,
                     ]
                 );
 
@@ -254,8 +265,13 @@ class ProjectController extends Controller
                 'name' => $projectModel->name,
                 'description' => $projectModel->description ?? '',
                 'color' => $projectModel->color ?? '',
+                'image' => $projectModel->image,
                 'memberIds' => $projectModel->member_ids ?? [],
                 'sequentialLock' => (bool) $projectModel->sequential_lock,
+                'isShared' => (bool) $projectModel->is_shared,
+                'lifecycleStatus' => $projectModel->status,
+                'showOnDashboard' => (bool) $projectModel->show_on_dashboard,
+                'allowNewGoals' => (bool) $projectModel->allow_new_goals,
                 'createdAt' => $projectModel->created_at?->toIso8601String(),
             ],
         ]);
