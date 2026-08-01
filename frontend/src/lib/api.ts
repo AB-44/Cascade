@@ -5,8 +5,17 @@ const TOKEN_KEY = "cascade_api_token";
 
 // Point this at your Laravel backend. Configure via a `.env` file:
 // VITE_API_URL=http://127.0.0.1:8000/api
-const BASE_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8000/api";
+//
+// If VITE_API_URL isn't set at build time, fall back to the current
+// origin (e.g. https://your-app.up.railway.app/api) instead of
+// localhost, so a deployed build never silently tries to reach the
+// developer's machine.
+const DEFAULT_BASE_URL =
+  typeof window !== "undefined" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1"
+    ? `${window.location.origin}/api`
+    : "http://127.0.0.1:8000/api";
 
+const BASE_URL = import.meta.env.VITE_API_URL ?? DEFAULT_BASE_URL;
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
 }
