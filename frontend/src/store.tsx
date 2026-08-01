@@ -76,6 +76,7 @@ interface StoreCtx {
   updateProject: (id: string, patch: Partial<Project>) => void;
   deleteProject: (id: string) => void;
   archiveProjectLocally: (id: string) => void;
+  refreshFromServer: () => Promise<void>;
 }
 
 const Ctx = createContext<StoreCtx | null>(null);
@@ -85,24 +86,35 @@ function useDebouncedSync<T>(
   hydratedRef: React.MutableRefObject<boolean>,
   syncFn: (v: T) => Promise<void>,
   setSyncStatus: (s: "syncing" | "synced" | "offline") => void,
-) {
+): { flushNow: (v: T) => void } {
   const timerRef = useRef<number | undefined>(undefined);
+
+  const runSync = (v: T) => {
+    setSyncStatus("syncing");
+    syncFn(v)
+      .then(() => setSyncStatus("synced"))
+      .catch((e) => {
+        console.error("sync failed, changes are still saved locally", e);
+        setSyncStatus("offline");
+      });
+  };
 
   useEffect(() => {
     if (!hydratedRef.current) return;
     window.clearTimeout(timerRef.current);
     setSyncStatus("syncing");
-    timerRef.current = window.setTimeout(() => {
-      syncFn(value)
-        .then(() => setSyncStatus("synced"))
-        .catch((e) => {
-          console.error("sync failed, changes are still saved locally", e);
-          setSyncStatus("offline");
-        });
-    }, 1200);
+    timerRef.current = window.setTimeout(() => runSync(value), 1200);
     return () => window.clearTimeout(timerRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
+
+  const flushNow = (v: T) => {
+    if (!hydratedRef.current) return;
+    window.clearTimeout(timerRef.current);
+    runSync(v);
+  };
+
+  return { flushNow };
 }
 
 // Like useDebouncedSync, but for members specifically: the server can
@@ -245,7 +257,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // debounced push-to-server for each resource, only after initial hydration
-  useDebouncedSync(goals, hydratedRef, syncGoals, setSyncStatus);
+  const { flushNow: flushGoalsNow } = useDebouncedSync(goals, hydratedRef, syncGoals, setSyncStatus);
   useDebouncedSync(templates, hydratedRef, syncTemplates, setSyncStatus);
   const { flushNow: flushMembersNow } = useDebouncedMembersSync(
     members,
@@ -304,18 +316,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const deleteGoal = useCallback((id: string) => {
-    setGoals((prev) => {
-      const desc = getDescendants(prev, id).map((g) => g.id);
-      const remove = new Set([id, ...desc]);
-      return prev
-        .filter((g) => !remove.has(g.id))
-        .map((g) => ({
-          ...g,
-          dependsOn: g.dependsOn.filter((d) => !remove.has(d)),
-        }));
-    });
-  }, []);
+  const deleteGoal = useCallback(
+    (id: string) => {
+      // Same reasoning as deleteMember: deletion is destructive, so it must
+      // not wait out the debounce window. Without this, a goal removed from
+      // the Tree could survive on the server if the tab closes (or another
+      // sync fires and races it) before the 1200ms timer elapses — and then
+      // resurface anywhere that reads goals directly from the server, like
+      // the My Tasks page.
+      setGoals((prev) => {
+        const desc = getDescendants(prev, id).map((g) => g.id);
+        const remove = new Set([id, ...desc]);
+        const next = prev
+          .filter((g) => !remove.has(g.id))
+          .map((g) => ({
+            ...g,
+            dependsOn: g.dependsOn.filter((d) => !remove.has(d)),
+          }));
+        flushGoalsNow(next);
+        return next;
+      });
+    },
+    [flushGoalsNow],
+  );
 
   const archiveGoal = useCallback((id: string, archived: boolean) => {
     setGoals((prev) => prev.map((g) => (g.id === id ? touch({ ...g, archived }) : g)));
@@ -510,12 +533,44 @@ export function StoreProvider({ children }: { children: ReactNode }) {
    * (both locally and on the server) so restoring the project brings them
    * straight back together, instead of leaving them as orphaned goals.
    */
+  /**
+   * Call after archiveProject() (the API call) succeeds — mirrors what the
+   * server just did. Critically, this must NOT remove the project's goals
+   * from local `goals`: they'd then be missing from the next debounced
+   * PUT /goals sync, and GoalController::sync treats anything missing from
+   * that payload as "the user deleted this" — a real, permanent delete
+   * (Goal has no soft-deletes). Flipping `archived: true` locally instead
+   * matches what the archive endpoint just did server-side, keeps every
+   * view that already filters on `!goal.archived` correctly hiding them,
+   * and keeps them present in the next sync so nothing gets destroyed.
+   */
   const archiveProjectLocally = useCallback((id: string) => {
     setProjects((prev) => prev.filter((p) => p.id !== id));
-    setGoals((prevG) => prevG.filter((g) => g.projectId !== id));
+    setGoals((prevG) => prevG.map((g) => (g.projectId === id ? { ...g, archived: true } : g)));
   }, []);
 
   const replaceAll = useCallback((g: Goal[]) => setGoals(g), []);
+
+  /**
+   * Full re-pull from the server, on demand — for the rare cases where an
+   * action changes server state in a way the local store can't cleanly
+   * patch in piecemeal (e.g. restoring an archived project un-hides both
+   * the project *and* every goal that was excluded from /state while it
+   * was trashed — reconstructing that locally would mean re-deriving
+   * everything the restore endpoint already knows). Not used for routine
+   * syncing; that stays fully local + debounced, same as always.
+   */
+  const refreshFromServer = useCallback(async () => {
+    try {
+      const remote = await fetchState();
+      setGoals(remote.goals);
+      setTemplates(remote.templates);
+      setMembers(remote.members);
+      setProjects(remote.projects);
+    } catch (e) {
+      console.error("refreshFromServer failed", e);
+    }
+  }, []);
 
   const effProgress = useCallback((g: Goal) => computeProgress(goals, g), [goals]);
 
@@ -568,6 +623,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       updateProject,
       deleteProject,
       archiveProjectLocally,
+      refreshFromServer,
     }),
     [
       goals,
@@ -599,6 +655,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       updateProject,
       deleteProject,
       archiveProjectLocally,
+      refreshFromServer,
     ],
   );
 

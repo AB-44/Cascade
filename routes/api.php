@@ -37,6 +37,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/assigned-to-me', [AssignedGoalController::class, 'index']);
     Route::patch('/assigned-to-me/{goal}', [AssignedGoalController::class, 'update']);
     Route::patch('/assigned-to-me/{goal}/checklist/{item}', [AssignedGoalController::class, 'updateChecklistItem']);
+    Route::delete('/assigned-to-me/{goal}', [AssignedGoalController::class, 'destroy']);
 
     // Inviting people to collaborate on one specific project
     Route::post('/projects/{project}/invite', [ProjectInvitationController::class, 'store']);

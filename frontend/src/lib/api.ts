@@ -244,6 +244,12 @@ export function updateAssignedGoal(goalId: string, patch: AssignedGoalPatch): Pr
   return request(`/assigned-to-me/${goalId}`, { method: "PATCH", body: JSON.stringify(patch) });
 }
 
+// Personal-only: deletes the goal (and its subtree) outright, same as
+// removing it from the Tree — see AssignedGoalController::destroy.
+export function deleteAssignedGoal(goalId: string): Promise<void> {
+  return request(`/assigned-to-me/${goalId}`, { method: "DELETE" });
+}
+
 export interface AssignedChecklistPatch {
   done?: boolean;
   notes?: string;
@@ -476,7 +482,7 @@ export function archiveProject(projectId: string): Promise<void> {
   return request(`/projects/${projectId}/archive`, { method: "POST" });
 }
 
-export function restoreProject(projectId: string): Promise<void> {
+export function restoreProject(projectId: string): Promise<{ message: string; project: Project }> {
   return request(`/projects/${projectId}/restore`, { method: "POST" });
 }
 

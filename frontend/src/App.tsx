@@ -80,6 +80,7 @@ function Shell() {
   const [sharedProjectsLoaded, setSharedProjectsLoaded] = useState(false);
   const [roadmapOwnerId, setRoadmapOwnerId] = useState<string | null>(null);
   const [currentProjectId, setCurrentProjectId] = useState<string>(() => loadCurrentProjectId());
+  const [pendingGoalScrollId, setPendingGoalScrollId] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const filterRowMounted = useMountTransition(filterOpen, 150);
@@ -268,8 +269,38 @@ function Shell() {
 
   const gotoGoal = (id: string) => {
     const g = goals.find((x) => x.id === id);
-    if (g) openEdit(g);
+    if (!g) return;
+    // Land on the goal's actual spot in the roadmap rather than jumping
+    // straight to its edit form — the roadmap is scoped by both project
+    // and owner, so both have to match the goal or its card simply won't
+    // be in the rendered tree to scroll to.
+    setView("roadmap");
+    setCurrentProjectId(g.projectId ?? "general");
+    setRoadmapOwnerId(g.roadmapOwnerId ?? null);
+    clearFilters();
+    setPendingGoalScrollId(id);
   };
+
+  // Runs once the roadmap has actually re-rendered with the right
+  // project/owner scope from gotoGoal above, so the target card exists in
+  // the DOM to find. A couple of frames' delay covers the tree layout
+  // settling before we measure scroll position.
+  useEffect(() => {
+    if (!pendingGoalScrollId || view !== "roadmap") return;
+    const id = pendingGoalScrollId;
+    const raf = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const el = document.querySelector(`[data-goal-id="${id}"]`);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+          el.classList.add("animate-goal-highlight");
+          window.setTimeout(() => el.classList.remove("animate-goal-highlight"), 3300);
+        }
+        setPendingGoalScrollId(null);
+      });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [pendingGoalScrollId, view]);
 
   const selectCls =
     "rounded-lg border border-line bg-card px-2.5 py-1.5 text-sm text-ink outline-none focus:border-terrace-500";

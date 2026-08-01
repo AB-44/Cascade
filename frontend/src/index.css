@@ -184,6 +184,16 @@ body {
 }
 .animate-scale-in { animation: scaleIn 0.2s var(--ease-out); }
 
+/* Brief highlight ring for a goal card jumped to from notifications, so
+   the eye finds it immediately among many roadmap cards. Fades on its
+   own — no interaction needed to dismiss it. */
+@keyframes goalHighlightPulse {
+  0% { box-shadow: 0 0 0 0 var(--color-terrace-500); }
+  12% { box-shadow: 0 0 0 4px var(--color-terrace-500); }
+  100% { box-shadow: 0 0 0 4px transparent; }
+}
+.animate-goal-highlight { animation: goalHighlightPulse 1.6s var(--ease-out) 2; border-radius: inherit; }
+
 /* ---- side panels (drawers) --------------------------------------------
    Enter and exit along the same path: a panel anchored to the inline-end
    slides in from that edge, never fades+scales from the center. Logical
@@ -245,6 +255,10 @@ body {
   .animate-scale-in {
     animation: fadeIn 0.15s ease both;
     transform: none !important;
+  }
+  .animate-goal-highlight {
+    animation: none;
+    box-shadow: 0 0 0 4px var(--color-terrace-500);
   }
 }
 

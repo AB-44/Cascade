@@ -11,6 +11,7 @@ import {
   type ArchivedProject,
 } from "../lib/api";
 import ArchivedProjectViewer from "./ArchivedProjectViewer";
+import ConfirmModal from "./ConfirmModal";
 
 type Tab = "projects" | "goals";
 
@@ -52,11 +53,13 @@ export default function ArchivePage() {
 }
 
 function ArchivedProjectsTab() {
+  const { refreshFromServer } = useStore();
   const [projects, setProjects] = useState<ArchivedProject[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [viewingId, setViewingId] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<ArchivedProject | null>(null);
 
   const load = () => {
     fetchArchivedProjects()
@@ -71,6 +74,9 @@ function ArchivedProjectsTab() {
     try {
       await restoreProject(p.id);
       setProjects((prev) => prev?.filter((x) => x.id !== p.id) ?? null);
+      // Bring the project (and every goal that was hidden along with it)
+      // back into the local store — see refreshFromServer's own comment.
+      await refreshFromServer();
     } catch {
       alert("تعذّرت استعادة المشروع.");
     } finally {
@@ -79,10 +85,7 @@ function ArchivedProjectsTab() {
   };
 
   const forceDelete = async (p: ArchivedProject) => {
-    const confirmed = confirm(
-      `حذف "${p.name}" نهائيًا؟ هذا الإجراء لا يمكن التراجع عنه — راح يمسح المشروع وكل أهدافه ومهامه من قاعدة البيانات نهائيًا.`,
-    );
-    if (!confirmed) return;
+    setConfirmDelete(null);
     setBusyId(p.id);
     try {
       await forceDeleteProject(p.id);
@@ -193,7 +196,7 @@ function ArchivedProjectsTab() {
                       </button>
                       <button
                         disabled={busyId === p.id}
-                        onClick={() => forceDelete(p)}
+                        onClick={() => setConfirmDelete(p)}
                         title="حذف نهائي"
                         className="rounded-md p-1.5 text-clay transition-colors duration-150 hover:bg-clay/10 disabled:opacity-50"
                       >
@@ -209,6 +212,19 @@ function ArchivedProjectsTab() {
       )}
 
       {viewingId && <ArchivedProjectViewer projectId={viewingId} onClose={() => setViewingId(null)} />}
+
+      {confirmDelete && (
+        <ConfirmModal
+          icon={Trash2}
+          destructive
+          title="حذف المشروع نهائيًا"
+          message={`حذف "${confirmDelete.name}" نهائيًا؟ هذا الإجراء لا يمكن التراجع عنه — راح يمسح المشروع وكل أهدافه ومهامه من قاعدة البيانات نهائيًا.`}
+          confirmLabel="حذف نهائي"
+          cancelLabel="إلغاء"
+          onConfirm={() => forceDelete(confirmDelete)}
+          onCancel={() => setConfirmDelete(null)}
+        />
+      )}
     </div>
   );
 }
@@ -216,6 +232,7 @@ function ArchivedProjectsTab() {
 function ArchivedGoalsTab() {
   const { goals, archiveGoal, deleteGoal } = useStore();
   const archived = goals.filter((g) => g.archived);
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string } | null>(null);
 
   return (
     <div className="space-y-2.5">
@@ -244,7 +261,7 @@ function ArchivedGoalsTab() {
             <ArchiveRestore size={16} />
           </button>
           <button
-            onClick={() => confirm(`حذف "${g.name}" نهائيًا؟`) && deleteGoal(g.id)}
+            onClick={() => setConfirmDelete({ id: g.id, name: g.name })}
             title="حذف"
             className="rounded-md p-1.5 text-ink-soft transition-colors duration-150 hover:bg-clay/10 hover:text-clay"
           >
@@ -252,6 +269,22 @@ function ArchivedGoalsTab() {
           </button>
         </div>
       ))}
+
+      {confirmDelete && (
+        <ConfirmModal
+          icon={Trash2}
+          destructive
+          title="حذف الهدف نهائيًا"
+          message={`حذف "${confirmDelete.name}" نهائيًا؟ هذا الإجراء لا يمكن التراجع عنه.`}
+          confirmLabel="حذف نهائي"
+          cancelLabel="إلغاء"
+          onConfirm={() => {
+            deleteGoal(confirmDelete.id);
+            setConfirmDelete(null);
+          }}
+          onCancel={() => setConfirmDelete(null)}
+        />
+      )}
     </div>
   );
 }

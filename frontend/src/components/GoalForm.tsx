@@ -160,7 +160,7 @@ export default function GoalForm({
             </div>
             <div>
               <h2 className="font-display text-xl font-semibold leading-tight text-ink">
-                {isEdit ? t(lang, "editGoal") : t(lang, "createGoal")}
+                {isEdit ? t(lang, "editGoal") : showFullFields ? t(lang, "createGoal") : t(lang, "createStage")}
               </h2>
               {form.name.trim() && (
                 <p className="mt-0.5 truncate text-xs text-ink-soft">{form.name}</p>
@@ -204,16 +204,17 @@ export default function GoalForm({
           {/* Basics */}
           <div className={sectionCls}>
             <div>
-              <label className={labelCls}>{t(lang, "name")} *</label>
+              <label className={labelCls}>{showFullFields ? t(lang, "name") : t(lang, "stageName")} *</label>
               <input
                 autoFocus
                 className={inputCls}
                 value={form.name}
                 onChange={(e) => set("name", e.target.value)}
-                placeholder={t(lang, "namePlaceholder")}
+                placeholder={showFullFields ? t(lang, "namePlaceholder") : t(lang, "stageNamePlaceholder")}
               />
             </div>
 
+            {showFullFields && (
             <div>
               <label className={labelCls}>{t(lang, "estimatedTime")}</label>
               <div className="flex items-center gap-2">
@@ -247,6 +248,7 @@ export default function GoalForm({
               </div>
               <p className="mt-1 text-[11px] text-ink-soft/70">{t(lang, "estimatedTimeHint")}</p>
             </div>
+            )}
 
             <div className={showFullFields ? "grid grid-cols-3 gap-3" : "grid grid-cols-2 gap-3"}>
               {showFullFields && (
@@ -288,6 +290,7 @@ export default function GoalForm({
 
           {/* Assignment & identity */}
           <div className={sectionCls}>
+            {showFullFields && (
             <div>
               <label className={labelCls}>{t(lang, "assignTo")}</label>
               {members.length > 0 && (
@@ -350,7 +353,9 @@ export default function GoalForm({
                 ))}
               </datalist>
             </div>
+            )}
 
+            {showFullFields && (
             <div>
               <label className={labelCls}>{t(lang, "tagCategory")}</label>
               <input
@@ -366,6 +371,7 @@ export default function GoalForm({
                 ))}
               </datalist>
             </div>
+            )}
 
             <div>
               <label className={labelCls}>{t(lang, "color")}</label>
@@ -454,6 +460,7 @@ export default function GoalForm({
               />
             </div>
 
+            {showFullFields && (
             <div>
               <label className={labelCls}>{t(lang, "parentGoal")}</label>
               <Select
@@ -467,6 +474,7 @@ export default function GoalForm({
                 ]}
               />
             </div>
+            )}
           </div>
 
           <div className={sectionCls}>
@@ -549,6 +557,7 @@ export default function GoalForm({
           )}
 
           {/* Depends on */}
+          {showFullFields && (
           <div>
             <label className={labelCls}>{t(lang, "dependsOn")}</label>
             <div className="flex flex-wrap gap-2">
@@ -580,6 +589,7 @@ export default function GoalForm({
               })}
             </div>
           </div>
+          )}
 
           {/* Reminder */}
           <div className="rounded-xl border border-line bg-basin-2/40 p-4">

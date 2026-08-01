@@ -20,6 +20,7 @@ import { BlockedBadge, DeadlineBadge } from "./GoalBadges";
 import TaskDetailPanel from "./TaskDetailPanel";
 import { t, tFormat } from "../lib/i18n";
 import { MemberAvatar } from "./TeamPanel";
+import ConfirmModal from "./ConfirmModal";
 
 interface Props {
   onEdit: (g: Goal) => void;
@@ -73,6 +74,7 @@ function NodeRow({
   const [collapsed, setCollapsed] = useState(false);
   const [dragOver, setDragOver] = useState<"" | "into" | "before">("");
   const [showTasks, setShowTasks] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const progress = effProgress(goal);
   const blocked = isBlocked(goals, goal);
@@ -252,7 +254,7 @@ function NodeRow({
                 <Archive size={15} />
               </button>
               <button
-                onClick={() => confirm(tFormat(lang, "confirmDelete", { name: goal.name })) && deleteGoal(goal.id)}
+                onClick={() => setConfirmDelete(true)}
                 title={t(lang, "delete")}
                 className="rounded p-1.5 text-ink-soft hover:bg-clay/10 hover:text-clay"
               >
@@ -275,6 +277,22 @@ function NodeRow({
       {/* task detail panel */}
       {showTasks && (
         <TaskDetailPanel goal={goal} onClose={() => setShowTasks(false)} />
+      )}
+
+      {confirmDelete && (
+        <ConfirmModal
+          icon={Trash2}
+          destructive
+          title={t(lang, "delete")}
+          message={tFormat(lang, "confirmDelete", { name: goal.name })}
+          confirmLabel={t(lang, "delete")}
+          cancelLabel={t(lang, "cancel")}
+          onConfirm={() => {
+            deleteGoal(goal.id);
+            setConfirmDelete(false);
+          }}
+          onCancel={() => setConfirmDelete(false)}
+        />
       )}
     </div>
   );

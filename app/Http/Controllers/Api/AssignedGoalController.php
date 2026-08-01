@@ -193,6 +193,49 @@ class AssignedGoalController extends Controller
         return response()->json(['message' => 'تم التحديث']);
     }
 
+    /**
+     * Permanently delete a goal from the "My tasks" private section. Scoped
+     * to goals the user actually owns via a private project (or no project
+     * at all) — the same "personal" test used in index()/goalToJson. A goal
+     * merely *assigned* to the user from someone else's project can't be
+     * deleted here; only its owner can remove it, via PUT /api/goals.
+     */
+    public function destroy(Request $request, string $goal)
+    {
+        $user = $request->user();
+
+        $myPrivateProjectIds = Project::where('user_id', $user->id)
+            ->where('is_shared', false)
+            ->pluck('id');
+
+        $goalModel = Goal::where('id', $goal)
+            ->where('user_id', $user->id)
+            ->where(function ($q) use ($myPrivateProjectIds) {
+                $q->whereNull('project_id')->orWhereIn('project_id', $myPrivateProjectIds);
+            })
+            ->first();
+
+        if (! $goalModel) {
+            throw new NotFoundHttpException('Goal not found or not deletable from here.');
+        }
+
+        // Mirror the Tree's deleteGoal: removing a goal takes its whole
+        // subtree with it, not just the single row, so nothing is left
+        // dangling under a parent that no longer exists.
+        $this->deleteWithDescendants($goalModel);
+
+        return response()->json(['message' => 'تم الحذف']);
+    }
+
+    private function deleteWithDescendants(Goal $goal): void
+    {
+        $children = Goal::where('parent_id', $goal->id)->get();
+        foreach ($children as $child) {
+            $this->deleteWithDescendants($child);
+        }
+        $goal->delete();
+    }
+
     private function assertStageUnlocked(Goal $goal): void
     {
         if ($goal->isInLockedStage()) {

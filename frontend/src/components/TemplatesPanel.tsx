@@ -1,10 +1,13 @@
+import { useState } from "react";
 import { FileStack, Trash2, X, Plus } from "lucide-react";
 import { useStore } from "../store";
 import { useClosing } from "../lib/useClosing";
+import ConfirmModal from "./ConfirmModal";
 
 export default function TemplatesPanel({ onClose }: { onClose: () => void }) {
   const { closing, requestClose } = useClosing(onClose);
   const { templates, deleteTemplate, createFromTemplate } = useStore();
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string } | null>(null);
 
   return (
     <div
@@ -40,7 +43,7 @@ export default function TemplatesPanel({ onClose }: { onClose: () => void }) {
                   <h3 className="font-semibold text-ink">{t.name}</h3>
                   <p className="text-xs text-ink-soft">{t.nodes.length} goal(s) · {new Date(t.createdAt).toLocaleDateString()}</p>
                 </div>
-                <button onClick={() => confirm(`Delete template "${t.name}"?`) && deleteTemplate(t.id)} className="rounded-md p-1 text-ink-soft transition-colors duration-150 hover:bg-clay/10 hover:text-clay">
+                <button onClick={() => setConfirmDelete({ id: t.id, name: t.name })} className="rounded-md p-1 text-ink-soft transition-colors duration-150 hover:bg-clay/10 hover:text-clay">
                   <Trash2 size={16} />
                 </button>
               </div>
@@ -57,6 +60,22 @@ export default function TemplatesPanel({ onClose }: { onClose: () => void }) {
           ))}
         </div>
       </div>
+
+      {confirmDelete && (
+        <ConfirmModal
+          icon={Trash2}
+          destructive
+          title="حذف القالب"
+          message={`هل تريد حذف قالب "${confirmDelete.name}"؟`}
+          confirmLabel="حذف"
+          cancelLabel="إلغاء"
+          onConfirm={() => {
+            deleteTemplate(confirmDelete.id);
+            setConfirmDelete(null);
+          }}
+          onCancel={() => setConfirmDelete(null)}
+        />
+      )}
     </div>
   );
 }

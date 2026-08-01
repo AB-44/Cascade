@@ -62,6 +62,7 @@ export default function RoadmapView({ onEdit, onAddChild, filter, sequentialLock
               </div>
             )}
             <div
+              data-goal-id={stage.goal.id}
               className={`terrace-card flex w-[272px] shrink-0 flex-col overflow-hidden border border-line bg-card shadow-sm transition-opacity duration-150 ${locked ? "opacity-60" : ""
                 }`}
               style={{ borderTopWidth: 3, borderTopColor: stage.goal.color || "var(--color-terrace-500)" }}
@@ -149,7 +150,7 @@ function RoadmapCard({ node, onEdit, depth }: { node: TreeNode; onEdit: (g: Goal
   const progress = effProgress(goal);
   const member = members.find((m) => m.name === goal.assignedTo);
   return (
-    <div style={{ marginLeft: depth * 8 }}>
+    <div style={{ marginLeft: depth * 8 }} data-goal-id={goal.id}>
       <div
         className="w-full rounded-lg border border-line bg-basin-2/40 p-2.5 text-left transition-colors duration-150 hover:border-terrace-300 hover:bg-basin-2"
         style={{ borderInlineStartWidth: 3, borderInlineStartColor: goal.color }}

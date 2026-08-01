@@ -18,6 +18,7 @@ import { t, tFormat } from "../lib/i18n";
 import { useClosing } from "../lib/useClosing";
 import type { Project, TeamMember } from "../types";
 import { MemberAvatar } from "./TeamPanel";
+import ConfirmModal from "./ConfirmModal";
 import {
   inviteToProject,
   fetchProjectInvitations,
@@ -43,6 +44,7 @@ export default function ProjectsPanel({ onClose, onOpenProject, initialEditProje
   const { closing, requestClose } = useClosing(onClose);
   const { projects, addProject, updateProject, archiveProjectLocally, goals, members, lang } = useStore();
   const [archivingId, setArchivingId] = useState<string | null>(null);
+  const [confirmArchive, setConfirmArchive] = useState<Project | null>(null);
   const [editing, setEditing] = useState<Project | null>(
     () => projects.find((p) => p.id === initialEditProjectId) ?? null,
   );
@@ -167,18 +169,7 @@ export default function ProjectsPanel({ onClose, onOpenProject, initialEditProje
                       </button>
                       <button
                         disabled={archivingId === project.id}
-                        onClick={async () => {
-                          if (!confirm(tFormat(lang, "confirmArchiveProject", { name: project.name }))) return;
-                          setArchivingId(project.id);
-                          try {
-                            await archiveProject(project.id);
-                            archiveProjectLocally(project.id);
-                          } catch {
-                            alert(t(lang, "archiveProjectFailed"));
-                          } finally {
-                            setArchivingId(null);
-                          }
-                        }}
+                        onClick={() => setConfirmArchive(project)}
                         title={t(lang, "archive")}
                         className="rounded-md p-1.5 text-ink-soft transition-colors duration-150 hover:bg-clay/10 hover:text-clay disabled:opacity-50"
                       >
@@ -229,6 +220,30 @@ export default function ProjectsPanel({ onClose, onOpenProject, initialEditProje
           />
         )}
       </div>
+
+      {confirmArchive && (
+        <ConfirmModal
+          icon={Archive}
+          title={t(lang, "archive")}
+          message={tFormat(lang, "confirmArchiveProject", { name: confirmArchive.name })}
+          confirmLabel={t(lang, "archive")}
+          cancelLabel={t(lang, "cancel")}
+          onConfirm={async () => {
+            const project = confirmArchive;
+            setConfirmArchive(null);
+            setArchivingId(project.id);
+            try {
+              await archiveProject(project.id);
+              archiveProjectLocally(project.id);
+            } catch {
+              alert(t(lang, "archiveProjectFailed"));
+            } finally {
+              setArchivingId(null);
+            }
+          }}
+          onCancel={() => setConfirmArchive(null)}
+        />
+      )}
     </div>
   );
 }

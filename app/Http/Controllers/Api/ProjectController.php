@@ -201,11 +201,26 @@ class ProjectController extends Controller
         ]);
     }
 
+    /**
+     * Archiving a project must ALSO mark its goals as archived here, on
+     * the server, in the same request — not rely on the frontend removing
+     * them from its local goals array and letting the next debounced sync
+     * catch up. Goal (unlike Project) has no soft-deletes: GoalController's
+     * full-replace sync treats "missing from the payload" as "the user
+     * deleted this", so if the client ever synced its goals array without
+     * this project's goals in it, they'd be permanently, irreversibly
+     * deleted — not archived. Doing it here instead means it's atomic
+     * with archiving the project and never depends on sync timing.
+     */
     public function archive(Request $request, string $project)
     {
         $user = $request->user();
         $projectModel = $user->projects()->findOrFail($project);
-        $projectModel->delete(); // soft delete — see SoftDeletes on the model
+
+        DB::transaction(function () use ($projectModel) {
+            Goal::where('project_id', $projectModel->id)->update(['archived' => true]);
+            $projectModel->delete(); // soft delete — see SoftDeletes on the model
+        });
 
         return response()->json(['message' => 'تمت الأرشفة']);
     }
@@ -214,9 +229,36 @@ class ProjectController extends Controller
     {
         $user = $request->user();
         $projectModel = Project::onlyTrashed()->where('user_id', $user->id)->findOrFail($project);
-        $projectModel->restore();
 
-        return response()->json(['message' => 'تمت الاستعادة']);
+        DB::transaction(function () use ($projectModel) {
+            $projectModel->restore();
+            // Mirror archive(): bring every one of this project's goals
+            // back out of "archived" too. Edge case worth knowing: a goal
+            // someone had manually archived *before* the project itself
+            // was archived also gets reactivated here — there's no
+            // separate flag distinguishing "archived by the project" from
+            // "archived on its own", so this trades a rare, minor surprise
+            // for never silently losing an entire project's tasks.
+            Goal::where('project_id', $projectModel->id)->update(['archived' => false]);
+        });
+
+        return response()->json([
+            'message' => 'تمت الاستعادة',
+            // The frontend's local `projects` store array was built from
+            // /state while this project was still excluded (soft-deleted),
+            // so it has no way to know it's back without this — otherwise
+            // opening it from the Projects page finds nothing in local
+            // state and crashes instead of navigating in.
+            'project' => [
+                'id' => $projectModel->id,
+                'name' => $projectModel->name,
+                'description' => $projectModel->description ?? '',
+                'color' => $projectModel->color ?? '',
+                'memberIds' => $projectModel->member_ids ?? [],
+                'sequentialLock' => (bool) $projectModel->sequential_lock,
+                'createdAt' => $projectModel->created_at?->toIso8601String(),
+            ],
+        ]);
     }
 
     /**

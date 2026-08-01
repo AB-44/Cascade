@@ -26,6 +26,7 @@ import { useStore } from "../store";
 import { t, tFormat } from "../lib/i18n";
 import type { TeamMember } from "../types";
 import { Select } from "./ui";
+import ConfirmModal from "./ConfirmModal";
 import {
   fetchProjectInvitations,
   getStoredUser,
@@ -500,6 +501,7 @@ function RowCard({
   onEdit: (m: TeamMember) => void;
   onDelete: (id: string) => void;
 }) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
   return (
     <div className="group terrace-card flex items-center gap-3 border border-line bg-basin-2/40 p-3 transition-all duration-150 hover:border-terrace-500/40 hover:bg-basin-2/70">
       <div className="relative shrink-0">
@@ -544,15 +546,29 @@ function RowCard({
             <Pencil size={15} />
           </button>
           <button
-            onClick={() => {
-              if (confirm(tFormat(lang, "confirmDeleteMember", { name: row.name }))) onDelete(row.member!.id);
-            }}
+            onClick={() => setConfirmDelete(true)}
             title={t(lang, "delete")}
             className="rounded-md p-1.5 text-ink-soft transition-colors duration-150 hover:bg-clay/10 hover:text-clay"
           >
             <Trash2 size={15} />
           </button>
         </div>
+      )}
+
+      {confirmDelete && (
+        <ConfirmModal
+          icon={Trash2}
+          destructive
+          title={t(lang, "delete")}
+          message={tFormat(lang, "confirmDeleteMember", { name: row.name })}
+          confirmLabel={t(lang, "delete")}
+          cancelLabel={t(lang, "cancel")}
+          onConfirm={() => {
+            onDelete(row.member!.id);
+            setConfirmDelete(false);
+          }}
+          onCancel={() => setConfirmDelete(false)}
+        />
       )}
     </div>
   );
@@ -574,6 +590,7 @@ function RowListItem({
   onDelete: (id: string) => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   return (
     <div
@@ -614,7 +631,7 @@ function RowListItem({
               </button>
               <button
                 onClick={() => {
-                  if (confirm(tFormat(lang, "confirmDeleteMember", { name: row.name }))) onDelete(row.member!.id);
+                  setConfirmDelete(true);
                   setMenuOpen(false);
                 }}
                 className="flex w-full items-center gap-2 px-3 py-2 text-start text-xs text-clay transition-colors duration-150 hover:bg-clay/10"
@@ -675,6 +692,22 @@ function RowListItem({
           )}
         </div>
       </div>
+
+      {confirmDelete && (
+        <ConfirmModal
+          icon={Trash2}
+          destructive
+          title={t(lang, "delete")}
+          message={tFormat(lang, "confirmDeleteMember", { name: row.name })}
+          confirmLabel={t(lang, "delete")}
+          cancelLabel={t(lang, "cancel")}
+          onConfirm={() => {
+            onDelete(row.member!.id);
+            setConfirmDelete(false);
+          }}
+          onCancel={() => setConfirmDelete(false)}
+        />
+      )}
     </div>
   );
 }

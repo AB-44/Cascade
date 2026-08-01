@@ -27,6 +27,7 @@ import { deadlineState, isBlocked, priorityColor } from "../lib/goals";
 import { fetchMyProjects, archiveProject as archiveProjectApi, type MyProject } from "../lib/api";
 import { ProgressBar, ProgressRing } from "./ui";
 import { MemberAvatar } from "./TeamPanel";
+import ConfirmModal from "./ConfirmModal";
 
 interface Props {
   project: Project;
@@ -57,6 +58,7 @@ const TABS: { id: Tab; label: string }[] = [
 export default function ProjectDetailPage({ project, onOpenRoadmap, onManageProject, onExportReport, onBack, onOpenArchive }: Props) {
   const { goals, members, archiveProjectLocally } = useStore();
   const [archiving, setArchiving] = useState(false);
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const [tab, setTab] = useState<Tab>("overview");
   const [myProjects, setMyProjects] = useState<MyProject[] | null>(null);
 
@@ -202,7 +204,7 @@ export default function ProjectDetailPage({ project, onOpenRoadmap, onManageProj
   let acc = 0;
 
   const handleArchiveProject = async () => {
-    if (!confirm(`هل أنت متأكد من أرشفة مشروع "${project.name}" وجميع المهام التابعة له؟ تقدر تسترجعه لاحقًا من الأرشيف.`)) return;
+    setShowArchiveConfirm(false);
     setArchiving(true);
     try {
       await archiveProjectApi(project.id);
@@ -381,9 +383,9 @@ export default function ProjectDetailPage({ project, onOpenRoadmap, onManageProj
           </dl>
 
           <button
-            onClick={handleArchiveProject}
+            onClick={() => setShowArchiveConfirm(true)}
             disabled={archiving}
-            className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-red-300 px-3 py-2 text-sm font-semibold text-red-600 transition-colors duration-150 hover:bg-red-50 disabled:opacity-60 dark:border-red-500/30 dark:text-red-400 dark:hover:bg-red-500/10"
+            className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-clay/30 px-3 py-2 text-sm font-semibold text-clay transition-colors duration-150 hover:bg-clay/10 disabled:opacity-60"
           >
             <Archive size={15} />
             {archiving ? "جارٍ الأرشفة..." : "أرشفة المشروع"}
@@ -608,6 +610,19 @@ export default function ProjectDetailPage({ project, onOpenRoadmap, onManageProj
           )}
         </div>
       </div>
+
+      {showArchiveConfirm && (
+        <ConfirmModal
+          icon={Archive}
+          title="أرشفة المشروع"
+          message={`هل أنت متأكد من أرشفة مشروع "${project.name}"؟ جميع المهام التابعة له لن تكون متاحة من الأرشيف.`}
+          confirmLabel="أرشفة المشروع"
+          cancelLabel="إلغاء"
+          footnote="يمكنك استرجاع المشروع وأهدافه بالكامل من صفحة الأرشيف في أي وقت."
+          onConfirm={handleArchiveProject}
+          onCancel={() => setShowArchiveConfirm(false)}
+        />
+      )}
     </div>
   );
 }

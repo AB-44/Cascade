@@ -16,17 +16,20 @@ import {
   ChevronRight,
   Search,
   Calendar as CalendarIcon,
+  Trash2,
 } from "lucide-react";
 import {
   fetchAssignedToMe,
   updateAssignedGoal,
   updateAssignedChecklistItem,
+  deleteAssignedGoal,
   ApiError,
   type AssignedGoal,
 } from "../lib/api";
 import type { Priority } from "../types";
-import { priorityColor } from "../lib/goals";
+import { priorityColor, getDescendants } from "../lib/goals";
 import { useClosing } from "../lib/useClosing";
+import { useStore } from "../store";
 import { Select } from "./ui";
 
 const STATUS_OPTIONS: AssignedGoal["status"][] = ["Not Started", "In Progress", "Completed"];
@@ -71,6 +74,7 @@ function Breadcrumb({ goal }: { goal: AssignedGoal }) {
 }
 
 export default function AssignedToMeView({ onGotoDeadlines }: { onGotoDeadlines: () => void }) {
+  const { goals: treeGoals, replaceAll: replaceTreeGoals } = useStore();
   const [goals, setGoals] = useState<AssignedGoal[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -139,6 +143,28 @@ export default function AssignedToMeView({ onGotoDeadlines }: { onGotoDeadlines:
       patchLocal(goal.id, { checklist: goal.checklist.map((it) => (it.id === itemId ? { ...it, done } : it)) });
     } catch {
       setError("تعذّر تحديث العنصر");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleDelete = async (goal: AssignedGoal) => {
+    if (!window.confirm(`حذف "${goal.name}" نهائيًا؟ هذا الإجراء سيحذفها من مشروعها الأصلي أيضًا ولا يمكن التراجع عنه.`)) {
+      return;
+    }
+    setBusyId(goal.id);
+    try {
+      await deleteAssignedGoal(goal.id);
+      setGoals((prev) => prev?.filter((g) => g.id !== goal.id) ?? null);
+      setDetailGoal((prev) => (prev?.id === goal.id ? null : prev));
+      // Keep the Tree's local store in step with the server: the server
+      // deletion already happened above, so this just mirrors it locally
+      // instead of leaving a stale copy that the next debounced sync would
+      // otherwise just re-confirm as still deleted anyway.
+      const removeIds = new Set([goal.id, ...getDescendants(treeGoals, goal.id).map((g) => g.id)]);
+      replaceTreeGoals(treeGoals.filter((g) => !removeIds.has(g.id)));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "تعذّر حذف المهمة");
     } finally {
       setBusyId(null);
     }
@@ -402,6 +428,7 @@ export default function AssignedToMeView({ onGotoDeadlines }: { onGotoDeadlines:
                       pageCount={personalPageCount}
                       onPageChange={setPersonalPage}
                       onOpen={setDetailGoal}
+                      onDelete={handleDelete}
                       emptyLabel="ما فيه مهام خاصة تطابق البحث/الفلتر."
                     />
                   )}
@@ -608,14 +635,22 @@ function MiniCalendar({
 /** Compact list row matching the reference: priority + date on the start
  *  side, title/description/assignee in the middle, avatar + progress on
  *  the end side. */
-function TaskRow({ goal, onOpen }: { goal: AssignedGoal; onOpen: () => void }) {
+function TaskRow({
+  goal,
+  onOpen,
+  onDelete,
+}: {
+  goal: AssignedGoal;
+  onOpen: () => void;
+  onDelete?: (goal: AssignedGoal) => void;
+}) {
   const isOverdue =
     goal.status !== "Completed" && !!goal.deadline && new Date(goal.deadline).getTime() < new Date().setHours(0, 0, 0, 0);
 
   return (
     <button
       onClick={onOpen}
-      className="terrace-card flex w-full items-center gap-3 border border-line bg-card p-3 text-start shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md"
+      className="terrace-card group flex w-full items-center gap-3 border border-line bg-card p-3 text-start shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md"
       style={{ borderInlineStartWidth: 3, borderInlineStartColor: goal.color || priorityColor(goal.priority) }}
     >
       <div className="hidden w-20 shrink-0 flex-col gap-1 sm:flex">
@@ -663,6 +698,32 @@ function TaskRow({ goal, onOpen }: { goal: AssignedGoal; onOpen: () => void }) {
         ) : (
           <ProgressRing value={goal.progress} size={32} stroke={3} />
         )}
+        {/* Only personal goals (private-project or project-less, owned by
+            this user) can be deleted from here — see destroy() on the
+            backend. Deleting removes the goal everywhere, including its
+            original spot in the project tree, since it's the same row. */}
+        {goal.isPersonal && onDelete && (
+          <span
+            role="button"
+            tabIndex={0}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(goal);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.stopPropagation();
+                e.preventDefault();
+                onDelete(goal);
+              }
+            }}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ink-soft/0 transition-colors duration-150 hover:bg-clay/10 hover:text-clay group-hover:text-ink-soft/50"
+            aria-label="حذف المهمة"
+            title="حذف المهمة نهائيًا"
+          >
+            <Trash2 size={15} />
+          </span>
+        )}
       </div>
     </button>
   );
@@ -680,6 +741,7 @@ function TaskSection({
   pageCount,
   onPageChange,
   onOpen,
+  onDelete,
   emptyLabel,
 }: {
   title: string;
@@ -690,6 +752,7 @@ function TaskSection({
   pageCount: number;
   onPageChange: (page: number) => void;
   onOpen: (goal: AssignedGoal) => void;
+  onDelete?: (goal: AssignedGoal) => void;
   emptyLabel: string;
 }) {
   return (
@@ -707,7 +770,7 @@ function TaskSection({
         <>
           <div className="space-y-2">
             {items.map((g) => (
-              <TaskRow key={g.id} goal={g} onOpen={() => onOpen(g)} />
+              <TaskRow key={g.id} goal={g} onOpen={() => onOpen(g)} onDelete={onDelete} />
             ))}
           </div>
           <Pagination page={page} pageCount={pageCount} onPageChange={onPageChange} />
