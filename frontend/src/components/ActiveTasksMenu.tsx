@@ -12,7 +12,7 @@ import type { Goal, TimeSession } from "../types";
  *  full task list for anything deeper. Purely goal-level timers here —
  *  a checklist item running inside a goal doesn't count as a separate
  *  "active task" for this summary. */
-export default function ActiveTasksMenu({ onGotoTasks }: { onGotoTasks: () => void }) {
+export default function ActiveTasksMenu({ onGotoTasks, onGoto }: { onGotoTasks: () => void; onGoto: (id: string) => void }) {
   const { goals, updateGoal, lang } = useStore();
   const [open, setOpen] = useState(false);
   const [now, setNow] = useState(Date.now());
@@ -72,15 +72,26 @@ export default function ActiveTasksMenu({ onGotoTasks }: { onGotoTasks: () => vo
 
   return (
     <div className="relative hidden sm:block" ref={ref}>
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="flex h-9 items-center gap-2 rounded-lg border border-terrace-500/30 bg-terrace-500/10 px-3 text-sm transition-colors duration-150 hover:bg-terrace-500/15"
-      >
-        <span className="h-2 w-2 shrink-0 rounded-full bg-terrace-500" />
-        <span className="max-w-[160px] truncate font-medium text-terrace-700">{featured.name}</span>
-        <span className="font-mono-num text-xs font-semibold text-terrace-600">{formatClock(elapsedFor(featured))}</span>
-        <ChevronDown size={14} className={`shrink-0 text-terrace-600 transition-transform duration-150 ${open ? "rotate-180" : ""}`} />
-      </button>
+      <div className="flex h-9 items-center rounded-lg border border-terrace-500/30 bg-terrace-500/10 text-sm transition-colors duration-150 hover:bg-terrace-500/15">
+        <button
+          onClick={() => {
+            setOpen(false);
+            onGoto(featured.id);
+          }}
+          className="flex h-full items-center gap-2 rounded-s-lg ps-3 pe-1.5"
+        >
+          <span className="h-2 w-2 shrink-0 rounded-full bg-terrace-500" />
+          <span className="max-w-[160px] truncate font-medium text-terrace-700">{featured.name}</span>
+          <span className="font-mono-num text-xs font-semibold text-terrace-600">{formatClock(elapsedFor(featured))}</span>
+        </button>
+        <button
+          onClick={() => setOpen((v) => !v)}
+          title={t(lang, "activeTasks")}
+          className="flex h-full items-center rounded-e-lg ps-1 pe-2.5"
+        >
+          <ChevronDown size={14} className={`shrink-0 text-terrace-600 transition-transform duration-150 ${open ? "rotate-180" : ""}`} />
+        </button>
+      </div>
 
       {open && (
         <div className="absolute end-0 z-50 mt-2 w-80 overflow-hidden rounded-xl border border-line bg-card shadow-xl animate-menu-in">
@@ -94,23 +105,38 @@ export default function ActiveTasksMenu({ onGotoTasks }: { onGotoTasks: () => vo
 
           <div className="max-h-80 overflow-y-auto p-2">
             {activeGoals.map((g) => (
-              <div
+              <button
                 key={g.id}
-                className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 transition-colors duration-150 hover:bg-basin-2"
+                onClick={() => {
+                  setOpen(false);
+                  onGoto(g.id);
+                }}
+                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-start transition-colors duration-150 hover:bg-basin-2"
               >
                 <span className="h-2 w-2 shrink-0 rounded-full bg-terrace-500" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-ink">{g.name}</p>
                   <p className="font-mono-num text-xs text-ink-soft">{formatElapsed(elapsedFor(g))}</p>
                 </div>
-                <button
-                  onClick={() => pause(g)}
+                <span
+                  role="button"
+                  tabIndex={0}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    pause(g);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.stopPropagation();
+                      pause(g);
+                    }
+                  }}
                   title={t(lang, "pauseTask")}
                   className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-line text-ink-soft transition-colors duration-150 hover:bg-ink/5 hover:text-ink"
                 >
                   <Pause size={13} />
-                </button>
-              </div>
+                </span>
+              </button>
             ))}
           </div>
 

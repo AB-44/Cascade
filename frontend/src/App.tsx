@@ -409,7 +409,7 @@ function Shell() {
           </div>
 
           <div className="flex items-center gap-1.5">
-            <ActiveTasksMenu onGotoTasks={() => setView("tree")} />
+            <ActiveTasksMenu onGotoTasks={() => setView("tree")} onGoto={gotoGoal} />
 
             <NotificationBell onGoto={gotoGoal} />
             <button
