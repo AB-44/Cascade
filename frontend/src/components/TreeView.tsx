@@ -276,7 +276,13 @@ function NodeRow({
 
       {/* task detail panel */}
       {showTasks && (
-        <TaskDetailPanel goal={goal} onClose={() => setShowTasks(false)} />
+        <TaskDetailPanel
+          goal={goal}
+          onClose={() => setShowTasks(false)}
+          onEdit={onEdit}
+          onDelete={deleteGoal}
+          onAddChild={onAddChild}
+        />
       )}
 
       {confirmDelete && (

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Pencil, Plus, User, ListTodo, ChevronLeft, Lock, CheckCircle2 } from "lucide-react";
+import { Pencil, Plus, Trash2, User, ListTodo, ChevronLeft, Lock, CheckCircle2 } from "lucide-react";
 import type { Goal } from "../types";
 import { useStore, useTree } from "../store";
 import { priorityColor, isStageLocked, blockingGoals } from "../lib/goals";
@@ -10,6 +10,7 @@ import { isBlocked } from "../lib/goals";
 import TaskDetailPanel from "./TaskDetailPanel";
 import { t, tFormat } from "../lib/i18n";
 import { MemberAvatar } from "./TeamPanel";
+import ConfirmModal from "./ConfirmModal";
 
 interface Props {
   onEdit: (g: Goal) => void;
@@ -32,8 +33,9 @@ function filterTree(nodes: TreeNode[], filter: (g: Goal) => boolean): TreeNode[]
 
 export default function RoadmapView({ onEdit, onAddChild, filter, sequentialLock = false, allowNewGoals = true }: Props) {
   const tree = useTree(false);
-  const { goals, effProgress, lang, updateGoal } = useStore();
+  const { goals, effProgress, lang, updateGoal, deleteGoal } = useStore();
   const stages = filterTree(tree, filter);
+  const [confirmDeleteStage, setConfirmDeleteStage] = useState<Goal | null>(null);
 
   if (stages.length === 0) return null;
 
@@ -51,8 +53,9 @@ export default function RoadmapView({ onEdit, onAddChild, filter, sequentialLock
   };
 
   return (
-    <div className="flex items-start overflow-x-auto pb-2">
-      {stages.map((stage, i) => {
+    <>
+      <div className="flex items-start overflow-x-auto pb-2">
+        {stages.map((stage, i) => {
         const stageProgress = effProgress(stage.goal);
         const locked = isStageLocked(goals, stage.goal, sequentialLock);
         return (
@@ -94,6 +97,13 @@ export default function RoadmapView({ onEdit, onAddChild, filter, sequentialLock
                       >
                         <Pencil size={14} />
                       </button>
+                      <button
+                        onClick={() => setConfirmDeleteStage(stage.goal)}
+                        title={t(lang, "delete")}
+                        className="rounded p-1 text-ink-soft transition-colors duration-150 hover:bg-clay/10 hover:text-clay"
+                      >
+                        <Trash2 size={14} />
+                      </button>
                     </div>
                   )}
                 </div>
@@ -123,7 +133,7 @@ export default function RoadmapView({ onEdit, onAddChild, filter, sequentialLock
                       <p className="py-4 text-center text-xs text-ink-soft">{t(lang, "noSubGoals")}</p>
                     )}
                     {stage.children.map((c) => (
-                      <RoadmapCard key={c.goal.id} node={c} onEdit={onEdit} depth={0} />
+                      <RoadmapCard key={c.goal.id} node={c} onEdit={onEdit} onDelete={deleteGoal} onAddChild={allowNewGoals ? onAddChild : undefined} depth={0} />
                     ))}
                     <button
                       onClick={() => toggleComplete(stage.goal)}
@@ -142,11 +152,40 @@ export default function RoadmapView({ onEdit, onAddChild, filter, sequentialLock
           </div>
         );
       })}
-    </div>
+      </div>
+
+      {confirmDeleteStage && (
+        <ConfirmModal
+          icon={Trash2}
+          destructive
+          title={t(lang, "delete")}
+          message={tFormat(lang, "confirmDelete", { name: confirmDeleteStage.name })}
+          confirmLabel={t(lang, "delete")}
+          cancelLabel={t(lang, "cancel")}
+          onConfirm={() => {
+            deleteGoal(confirmDeleteStage.id);
+            setConfirmDeleteStage(null);
+          }}
+          onCancel={() => setConfirmDeleteStage(null)}
+        />
+      )}
+    </>
   );
 }
 
-function RoadmapCard({ node, onEdit, depth }: { node: TreeNode; onEdit: (g: Goal) => void; depth: number }) {
+function RoadmapCard({
+  node,
+  onEdit,
+  onDelete,
+  onAddChild,
+  depth,
+}: {
+  node: TreeNode;
+  onEdit: (g: Goal) => void;
+  onDelete?: (id: string) => void;
+  onAddChild?: (parentId: string) => void;
+  depth: number;
+}) {
   const [showTasks, setShowTasks] = useState(false);
   const { effProgress, members } = useStore();
   const { goal, children } = node;
@@ -155,18 +194,24 @@ function RoadmapCard({ node, onEdit, depth }: { node: TreeNode; onEdit: (g: Goal
   return (
     <div style={{ marginLeft: depth * 8 }} data-goal-id={goal.id}>
       <div
-        className="w-full rounded-lg border border-line bg-basin-2/40 p-2.5 text-left transition-colors duration-150 hover:border-terrace-300 hover:bg-basin-2"
+        role="button"
+        tabIndex={0}
+        onClick={() => setShowTasks(true)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setShowTasks(true);
+          }
+        }}
+        className="w-full cursor-pointer rounded-lg border border-line bg-basin-2/40 p-2.5 text-left transition-colors duration-150 hover:border-terrace-300 hover:bg-basin-2"
         style={{ borderInlineStartWidth: 3, borderInlineStartColor: goal.color }}
       >
-        <button
-          onClick={() => setShowTasks(true)}
-          className="flex w-full items-center gap-2"
-        >
+        <div className="flex w-full items-center gap-2">
           <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: priorityColor(goal.priority) }} />
           <span className={`truncate text-sm font-medium text-ink ${goal.status === "Completed" ? "line-through opacity-60" : ""}`}>
             {goal.name}
           </span>
-        </button>
+        </div>
         <div className="mt-1.5 flex items-center gap-2">
           <ProgressBar value={progress} color={goal.color} />
           <span className="font-mono-num text-[10px] font-semibold text-ink-soft">{progress}%</span>
@@ -178,25 +223,24 @@ function RoadmapCard({ node, onEdit, depth }: { node: TreeNode; onEdit: (g: Goal
               {goal.assignedTo}
             </span>
           )}
-          <button
-            onClick={() => setShowTasks(true)}
-            className="inline-flex items-center gap-1 rounded bg-basin-2 px-2 py-0.5 text-[10px] font-medium text-ink-soft transition-colors duration-150 hover:bg-terrace-100 hover:text-terrace-700"
-          >
-            <ListTodo size={11} />
-            {goal.checklist.filter((c) => c.done).length}/{goal.checklist.length}
-          </button>
+          {goal.checklist.length > 0 && (
+            <span className="inline-flex items-center gap-1 rounded bg-basin-2 px-2 py-0.5 text-[10px] font-medium text-ink-soft">
+              <ListTodo size={11} />
+              {goal.checklist.filter((c) => c.done).length}/{goal.checklist.length}
+            </span>
+          )}
         </div>
       </div>
       {children.length > 0 && (
         <div className="mt-2 space-y-2">
           {children.map((c) => (
-            <RoadmapCard key={c.goal.id} node={c} onEdit={onEdit} depth={depth + 1} />
+            <RoadmapCard key={c.goal.id} node={c} onEdit={onEdit} onDelete={onDelete} onAddChild={onAddChild} depth={depth + 1} />
           ))}
         </div>
       )}
 
       {showTasks && (
-        <TaskDetailPanel goal={goal} onClose={() => setShowTasks(false)} />
+        <TaskDetailPanel goal={goal} onClose={() => setShowTasks(false)} onEdit={onEdit} onDelete={onDelete} onAddChild={onAddChild} />
       )}
     </div>
   );

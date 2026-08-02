@@ -20,18 +20,23 @@ import {
   ChevronRight,
   GripVertical,
   StickyNote,
+  Pencil,
 } from "lucide-react";
 import type { Goal, ChecklistItem, TimeSession } from "../types";
 import { useStore } from "../store";
 import { deadlineState, priorityColor } from "../lib/goals";
 import { uid } from "../lib/storage";
-import { t } from "../lib/i18n";
+import { t, tFormat } from "../lib/i18n";
 import { useClosing } from "../lib/useClosing";
 import { MemberAvatar } from "./TeamPanel";
+import ConfirmModal from "./ConfirmModal";
 
 interface Props {
   goal: Goal;
   onClose: () => void;
+  onEdit?: (g: Goal) => void;
+  onDelete?: (id: string) => void;
+  onAddChild?: (parentId: string) => void;
 }
 
 const MAX_IMAGES_PER_ITEM = 6;
@@ -80,7 +85,7 @@ export function formatElapsed(ms: number): string {
   return `${m}m`;
 }
 
-export default function TaskDetailPanel({ goal, onClose }: Props) {
+export default function TaskDetailPanel({ goal, onClose, onEdit, onDelete, onAddChild }: Props) {
   const { closing, requestClose } = useClosing(onClose);
   const { updateGoal, effProgress, lang, members } = useStore();
   const member = members.find((m) => m.name === goal.assignedTo);
@@ -92,6 +97,7 @@ export default function TaskDetailPanel({ goal, onClose }: Props) {
   const [now, setNow] = useState(Date.now());
 
   const [showTargetModal, setShowTargetModal] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const anyItemRunning = goal.checklist.some((c) => c.startedAt);
 
@@ -373,12 +379,41 @@ export default function TaskDetailPanel({ goal, onClose }: Props) {
               </div>
             </div>
           </div>
-          <button
-            onClick={requestClose}
-            className="rounded-lg p-2 text-ink-soft transition-colors duration-150 hover:bg-terrace-500/10 hover:text-ink"
-          >
-            <X size={20} />
-          </button>
+          <div className="flex shrink-0 items-center gap-1">
+            {onAddChild && (
+              <button
+                onClick={() => onAddChild(goal.id)}
+                title={t(lang, "addSubGoal")}
+                className="rounded-lg p-2 text-ink-soft transition-colors duration-150 hover:bg-terrace-500/10 hover:text-terrace-600"
+              >
+                <Plus size={18} />
+              </button>
+            )}
+            {onEdit && (
+              <button
+                onClick={() => onEdit(goal)}
+                title={t(lang, "edit")}
+                className="rounded-lg p-2 text-ink-soft transition-colors duration-150 hover:bg-ink/5 hover:text-ink"
+              >
+                <Pencil size={17} />
+              </button>
+            )}
+            {onDelete && (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                title={t(lang, "delete")}
+                className="rounded-lg p-2 text-ink-soft transition-colors duration-150 hover:bg-clay/10 hover:text-clay"
+              >
+                <Trash2 size={17} />
+              </button>
+            )}
+            <button
+              onClick={requestClose}
+              className="rounded-lg p-2 text-ink-soft transition-colors duration-150 hover:bg-terrace-500/10 hover:text-ink"
+            >
+              <X size={20} />
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto">
@@ -674,6 +709,23 @@ export default function TaskDetailPanel({ goal, onClose }: Props) {
             </div>
           </div>
         </div>
+      )}
+
+      {confirmDelete && onDelete && (
+        <ConfirmModal
+          icon={Trash2}
+          destructive
+          title={t(lang, "delete")}
+          message={tFormat(lang, "confirmDelete", { name: goal.name })}
+          confirmLabel={t(lang, "delete")}
+          cancelLabel={t(lang, "cancel")}
+          onConfirm={() => {
+            onDelete(goal.id);
+            setConfirmDelete(false);
+            requestClose();
+          }}
+          onCancel={() => setConfirmDelete(false)}
+        />
       )}
     </div>
   );
