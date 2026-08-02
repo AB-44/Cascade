@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Pencil, Plus, Trash2, User, ListTodo, ChevronLeft, Lock } from "lucide-react";
 import type { Goal } from "../types";
 import { useStore, useTree } from "../store";
@@ -32,6 +32,7 @@ function filterTree(nodes: TreeNode[], filter: (g: Goal) => boolean): TreeNode[]
 }
 
 const CARDS_PAGE_SIZE = 10;
+const STAGES_PAGE_SIZE = 10;
 
 export default function RoadmapView({ onEdit, onAddChild, filter, sequentialLock = false, allowNewGoals = true }: Props) {
   const tree = useTree(false);
@@ -42,13 +43,26 @@ export default function RoadmapView({ onEdit, onAddChild, filter, sequentialLock
   // since each column's "show more" is independent of the others. A stage
   // not in this map just uses the default page size.
   const [visibleCounts, setVisibleCounts] = useState<Record<string, number>>({});
+  // How many stage columns (not cards) are currently shown — same pattern,
+  // just horizontal instead of vertical: the trailing "show more" sits at
+  // the end of the visible row instead of the bottom of a column.
+  const [visibleStageCount, setVisibleStageCount] = useState(STAGES_PAGE_SIZE);
+
+  // A new filter is a new context — start back at the first page of stages
+  // instead of carrying over however far the user had scrolled before.
+  useEffect(() => {
+    setVisibleStageCount(STAGES_PAGE_SIZE);
+  }, [filter]);
 
   if (stages.length === 0) return null;
+
+  const visibleStages = stages.slice(0, visibleStageCount);
+  const remainingStages = stages.length - visibleStages.length;
 
   return (
     <>
       <div className="flex items-start overflow-x-auto pb-2">
-        {stages.map((stage, i) => {
+        {visibleStages.map((stage, i) => {
         const stageProgress = effProgress(stage.goal);
         const locked = isStageLocked(goals, stage.goal, sequentialLock);
         return (
@@ -157,6 +171,21 @@ export default function RoadmapView({ onEdit, onAddChild, filter, sequentialLock
           </div>
         );
       })}
+      {remainingStages > 0 && (
+        <div className="flex shrink-0 items-start">
+          <div className="flex h-10 shrink-0 items-center self-center px-2 text-ink-soft/40">
+            <ChevronLeft size={18} className="roadmap-arrow" />
+          </div>
+          <button
+            onClick={() => setVisibleStageCount((prev) => prev + STAGES_PAGE_SIZE)}
+            className="flex h-[120px] w-[140px] shrink-0 flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-line text-xs font-medium text-ink-soft transition-colors duration-150 hover:border-terrace-300 hover:bg-terrace-500/5 hover:text-terrace-700"
+          >
+            <ChevronLeft size={16} />
+            {t(lang, "showMore")}
+            <span className="font-mono-num text-[11px]">({remainingStages})</span>
+          </button>
+        </div>
+      )}
       </div>
 
       {confirmDeleteStage && (
