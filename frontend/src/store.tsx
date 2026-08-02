@@ -277,7 +277,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (
           g.archived ||
           g.status === "Completed" ||
-          (g.roadmapOwnerId ?? null) !== roadmapOwnerId
+          // Same "team roadmap = everything" rule as the main view: a
+          // specific member's roadmap still narrows to just their goals,
+          // but the team roadmap (null) never excludes anything by owner.
+          (roadmapOwnerId !== null && (g.roadmapOwnerId ?? null) !== roadmapOwnerId)
         ) {
           return g;
         }

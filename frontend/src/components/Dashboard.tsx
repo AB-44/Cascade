@@ -15,7 +15,10 @@ export default function Dashboard({
   const active = useMemo(
     () =>
       goals.filter((g) => {
-        if (g.archived || (g.roadmapOwnerId ?? null) !== roadmapOwnerId) return false;
+        if (g.archived) return false;
+        // Same "team roadmap shows everything" rule as the main tree/roadmap
+        // view — see App.tsx's roadmapScopeFilter.
+        if (roadmapOwnerId !== null && (g.roadmapOwnerId ?? null) !== roadmapOwnerId) return false;
         if (currentProjectId === "all") return true;
         if (currentProjectId === "general") return (g.projectId ?? null) === null;
         return g.projectId === currentProjectId;

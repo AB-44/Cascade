@@ -201,14 +201,20 @@ function Shell() {
     return g.projectId === currentProjectId;
   };
 
+  // "Team roadmap" (roadmapOwnerId === null) shows every goal in the
+  // project regardless of who it's scoped to — it's the "everything" view,
+  // not a filter for goals that specifically have no owner set. Selecting
+  // a specific member narrows it down to just their roadmap, as before.
+  const roadmapScopeFilter = (g: Goal) => roadmapOwnerId === null || (g.roadmapOwnerId ?? null) === roadmapOwnerId;
+
   const activeGoals = goals.filter(
-    (g) => !g.archived && (g.roadmapOwnerId ?? null) === roadmapOwnerId && projectFilter(g),
+    (g) => !g.archived && roadmapScopeFilter(g) && projectFilter(g),
   );
   const incompleteCount = activeGoals.filter((g) => g.status !== "Completed").length;
   const hasGoals = activeGoals.length > 0;
 
   const filterFn = (g: Goal) => {
-    if ((g.roadmapOwnerId ?? null) !== roadmapOwnerId) return false;
+    if (!roadmapScopeFilter(g)) return false;
     if (!projectFilter(g)) return false;
     if (search && !g.name.toLowerCase().includes(search.toLowerCase())) return false;
     if (fAssignee && g.assignedTo !== fAssignee) return false;
