@@ -392,7 +392,7 @@ export default function TaskDetailPanel({ goal, onClose, onEdit, onDelete, onAdd
                 <ListTodo size={19} strokeWidth={2.25} style={{ color: goal.color }} />
               </div>
               <div className="min-w-0">
-                <h2 className="truncate font-display text-xl font-semibold leading-tight text-ink">
+                <h2 className="break-words font-display text-xl font-semibold leading-tight text-ink">
                   {goal.name}
                 </h2>
                 {goal.tag && (
