@@ -20,11 +20,19 @@ import {
   FileX,
   UserCircle2,
   ChevronLeft,
+  X,
+  LogOut,
 } from "lucide-react";
 import type { Project } from "../types";
 import { useStore } from "../store";
 import { deadlineState, isBlocked, priorityColor } from "../lib/goals";
-import { fetchMyProjects, archiveProject as archiveProjectApi, type MyProject } from "../lib/api";
+import {
+  fetchMyProjects,
+  archiveProject as archiveProjectApi,
+  removeProjectCollaborator,
+  leaveProject,
+  type MyProject,
+} from "../lib/api";
 import { ProgressBar, ProgressRing } from "./ui";
 import { MemberAvatar } from "./TeamPanel";
 import ConfirmModal from "./ConfirmModal";
@@ -56,11 +64,15 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 
 export default function ProjectDetailPage({ project, onOpenRoadmap, onManageProject, onExportReport, onBack, onOpenArchive }: Props) {
-  const { goals, members, archiveProjectLocally } = useStore();
+  const { goals, members, updateGoal, archiveProjectLocally } = useStore();
   const [archiving, setArchiving] = useState(false);
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const [tab, setTab] = useState<Tab>("overview");
   const [myProjects, setMyProjects] = useState<MyProject[] | null>(null);
+  const [removingId, setRemovingId] = useState<number | null>(null);
+  const [confirmRemoveId, setConfirmRemoveId] = useState<number | null>(null);
+  const [leaving, setLeaving] = useState(false);
+  const [confirmLeave, setConfirmLeave] = useState(false);
 
   // Only used to tell whether the project is shared with real collaborator
   // accounts (vs. just team-member labels used for assignment) — this is
@@ -83,7 +95,7 @@ export default function ProjectDetailPage({ project, onOpenRoadmap, onManageProj
   // only local memberIds were rendered — so merge both, preferring the
   // account entry when a name matches on both sides.
   const teamRows = useMemo(() => {
-    const rows: { key: string; name: string; avatar: string; color: string; subtitle: string }[] = [];
+    const rows: { key: string; name: string; avatar: string; color: string; subtitle: string; accountId?: number }[] = [];
     const seenNames = new Set<string>();
 
     if (apiProject) {
@@ -94,6 +106,7 @@ export default function ProjectDetailPage({ project, onOpenRoadmap, onManageProj
           avatar: a.avatar ?? "",
           color: a.color ?? "#C9973B",
           subtitle: i === 0 ? "مالك المشروع" : "متعاون",
+          accountId: i === 0 ? undefined : a.id, // never let the owner row be targeted for removal
         });
         seenNames.add(a.name.trim().toLowerCase());
       });
@@ -114,6 +127,53 @@ export default function ProjectDetailPage({ project, onOpenRoadmap, onManageProj
 
     return rows;
   }, [apiProject, members, project.memberIds]);
+
+  const isOwner = apiProject ? apiProject.role === "owner" : true;
+
+  const handleRemove = async (accountId: number) => {
+    setRemovingId(accountId);
+    try {
+      const removedRow = teamRows.find((r) => r.accountId === accountId);
+      await removeProjectCollaborator(project.id, accountId);
+
+      // Server already clears assignedTo on affected goals; mirror that
+      // locally so the goal shows as unassigned right away instead of only
+      // after the next reload — same reconciliation ProjectCollaboratorsSection
+      // does for this same action from the settings page.
+      if (removedRow) {
+        const memberId = members.find((m) => m.name.trim().toLowerCase() === removedRow.name.trim().toLowerCase())?.id;
+        if (memberId) {
+          goals
+            .filter((g) => g.projectId === project.id && g.assignedTo === memberId)
+            .forEach((g) => updateGoal(g.id, { assignedTo: "" }));
+        }
+      }
+
+      setMyProjects((prev) =>
+        prev
+          ? prev.map((p) =>
+              p.id === project.id
+                ? { ...p, memberAvatars: p.memberAvatars.filter((a) => a.id !== accountId), memberCount: p.memberCount - 1 }
+                : p,
+            )
+          : prev,
+      );
+    } finally {
+      setRemovingId(null);
+      setConfirmRemoveId(null);
+    }
+  };
+
+  const handleLeave = async () => {
+    setLeaving(true);
+    try {
+      await leaveProject(project.id);
+      onBack?.();
+    } finally {
+      setLeaving(false);
+      setConfirmLeave(false);
+    }
+  };
 
   const projectGoals = useMemo(
     () => goals.filter((g) => g.projectId === project.id && !g.archived),
@@ -396,20 +456,31 @@ export default function ProjectDetailPage({ project, onOpenRoadmap, onManageProj
         <div className="terrace-card border border-line bg-card p-4">
           <div className="mb-3 flex items-center justify-between gap-2">
             <h2 className="font-display text-base font-semibold text-ink">فريق المشروع</h2>
-            <button
-              onClick={() => onManageProject("members")}
-              className="inline-flex items-center gap-1 rounded-lg border border-line px-2.5 py-1.5 text-xs font-medium text-ink-soft transition-colors duration-150 hover:bg-ink/5"
-            >
-              <UserPlus size={13} />
-              أعضاء
-            </button>
+            <div className="flex items-center gap-1.5">
+              {!isOwner && (
+                <button
+                  onClick={() => setConfirmLeave(true)}
+                  className="inline-flex items-center gap-1 rounded-lg border border-line px-2.5 py-1.5 text-xs font-medium text-clay transition-colors duration-150 hover:bg-clay/10"
+                >
+                  <LogOut size={13} />
+                  الخروج من المشروع
+                </button>
+              )}
+              <button
+                onClick={() => onManageProject("members")}
+                className="inline-flex items-center gap-1 rounded-lg border border-line px-2.5 py-1.5 text-xs font-medium text-ink-soft transition-colors duration-150 hover:bg-ink/5"
+              >
+                <UserPlus size={13} />
+                أعضاء
+              </button>
+            </div>
           </div>
           {teamRows.length === 0 ? (
             <p className="py-4 text-center text-sm text-ink-soft">ما فيه أعضاء مرتبطون بهذا المشروع بعد.</p>
           ) : (
             <div className="space-y-1">
               {teamRows.map((row) => (
-                <div key={row.key} className="flex items-center gap-2.5 rounded-lg px-1.5 py-2 hover:bg-ink/5">
+                <div key={row.key} className="group flex items-center gap-2.5 rounded-lg px-1.5 py-2 hover:bg-ink/5">
                   <div className="relative shrink-0">
                     <MemberAvatar member={{ name: row.name, avatar: row.avatar, color: row.color }} size={32} />
                     <span className="absolute -bottom-0.5 -end-0.5 h-2.5 w-2.5 rounded-full border-2 border-card bg-green-500" />
@@ -421,6 +492,16 @@ export default function ProjectDetailPage({ project, onOpenRoadmap, onManageProj
                   <span className="shrink-0 rounded-full bg-basin-2 px-2 py-0.5 text-[10px] font-medium text-ink-soft">
                     {row.subtitle === "مالك المشروع" ? "مالك" : "عضو"}
                   </span>
+                  {isOwner && row.accountId !== undefined && (
+                    <button
+                      onClick={() => setConfirmRemoveId(row.accountId!)}
+                      disabled={removingId === row.accountId}
+                      title="حذف من المشروع"
+                      className="shrink-0 rounded-lg p-1.5 text-ink-soft/0 transition-colors duration-150 hover:bg-clay/10 hover:text-clay group-hover:text-ink-soft/50 disabled:opacity-40"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -621,6 +702,32 @@ export default function ProjectDetailPage({ project, onOpenRoadmap, onManageProj
           footnote="يمكنك استرجاع المشروع وأهدافه بالكامل من صفحة الأرشيف في أي وقت."
           onConfirm={handleArchiveProject}
           onCancel={() => setShowArchiveConfirm(false)}
+        />
+      )}
+
+      {confirmRemoveId !== null && (
+        <ConfirmModal
+          icon={X}
+          destructive
+          title="حذف عضو من المشروع"
+          message={`حذف "${teamRows.find((r) => r.accountId === confirmRemoveId)?.name}" من هذا المشروع؟ راح يفقد الوصول له فورًا، وأي مهام مسندة له تصير بدون تعيين.`}
+          confirmLabel="حذف"
+          cancelLabel="إلغاء"
+          onConfirm={() => handleRemove(confirmRemoveId)}
+          onCancel={() => setConfirmRemoveId(null)}
+        />
+      )}
+
+      {confirmLeave && (
+        <ConfirmModal
+          icon={LogOut}
+          destructive
+          title="الخروج من المشروع"
+          message={`الخروج من "${project.name}"؟ راح تفقد الوصول له، وتقدر ترجع بس إذا صاحب المشروع يدعوك مرة ثانية.`}
+          confirmLabel={leaving ? "جارٍ الخروج..." : "الخروج"}
+          cancelLabel="إلغاء"
+          onConfirm={handleLeave}
+          onCancel={() => setConfirmLeave(false)}
         />
       )}
     </div>

@@ -43,6 +43,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/projects/{project}/invite', [ProjectInvitationController::class, 'store']);
     Route::get('/projects/{project}/invitations', [ProjectInvitationController::class, 'indexForProject']);
     Route::delete('/projects/{project}/collaborators/{userId}', [ProjectInvitationController::class, 'destroy']);
+    Route::post('/projects/{project}/leave', [ProjectController::class, 'leave']);
     Route::get('/invitations', [ProjectInvitationController::class, 'indexForMe']);
     Route::post('/invitations/{invitation}/accept', [ProjectInvitationController::class, 'accept']);
     Route::post('/invitations/{invitation}/decline', [ProjectInvitationController::class, 'decline']);

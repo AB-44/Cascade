@@ -54,6 +54,7 @@ class ProjectController extends Controller
                     ->unique('id')
                     ->take(5)
                     ->map(fn ($u) => [
+                        'id' => $u->id,
                         'name' => $u->name,
                         'avatar' => $u->avatar,
                         'color' => $u->avatar_color,
@@ -123,6 +124,25 @@ class ProjectController extends Controller
         });
 
         return response()->json(['message' => 'تمت المزامنة']);
+    }
+
+    /**
+     * A collaborator removes themselves from someone else's shared project.
+     * The owner can't be removed this way (ownership only ends by deleting
+     * the project), so this 422s if called by the owner.
+     */
+    public function leave(Request $request, string $project)
+    {
+        $user = $request->user();
+        $proj = Project::findOrFail($project);
+
+        if ($proj->user_id === $user->id) {
+            return response()->json(['message' => 'أنت صاحب هذا المشروع ولا يمكنك الخروج منه.'], 422);
+        }
+
+        $proj->collaborators()->detach($user->id);
+
+        return response()->json(['message' => 'تم الخروج من المشروع']);
     }
 
     /**

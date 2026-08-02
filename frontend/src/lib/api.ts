@@ -313,6 +313,13 @@ export function removeProjectCollaborator(projectId: string, userId: number): Pr
   return request(`/projects/${projectId}/collaborators/${userId}`, { method: "DELETE" });
 }
 
+// Leaving is the collaborator's own side of removal — same underlying
+// membership row as removeProjectCollaborator, just invoked by the person
+// leaving instead of the owner removing them.
+export function leaveProject(projectId: string): Promise<void> {
+  return request(`/projects/${projectId}/leave`, { method: "POST" });
+}
+
 export interface MyInvitation {
   id: string;
   projectId: string;
@@ -419,6 +426,7 @@ export function fetchSharedProjects(): Promise<{ projects: SharedProject[] }> {
 /** A row from the unified project directory — combines this user's own
  *  projects and every project they collaborate on, each tagged with role. */
 export interface MyProjectMemberAvatar {
+  id: number;
   name: string;
   avatar: string | null;
   color: string | null;
