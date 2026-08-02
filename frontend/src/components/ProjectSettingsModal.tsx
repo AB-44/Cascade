@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import {
-  X,
+  ChevronLeft,
   FolderDot,
   Camera,
   Check,
@@ -13,7 +13,6 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { useStore } from "../store";
-import { useClosing } from "../lib/useClosing";
 import { t } from "../lib/i18n";
 import type { Project } from "../types";
 import { getStoredUser, archiveProject, forceDeleteProject } from "../lib/api";
@@ -41,10 +40,10 @@ const STATUS_OPTIONS = [
  * Settings for one existing project — reachable from ProjectDetailPage's
  * quick actions. Not a create form (that's still ProjectsPanel's simpler
  * ProjectForm); this is the fuller "manage everything about this project"
- * surface, including permanently destructive actions.
+ * surface, including permanently destructive actions. A full page (not a
+ * modal) so it sits in the normal navigation flow like Team/Projects do.
  */
 export default function ProjectSettingsModal({ project, onClose, onOpenProject, initialTab = "general" }: Props) {
-  const { closing, requestClose } = useClosing(onClose);
   const { updateProject, archiveProjectLocally, goals, members, lang } = useStore();
   const [tab, setTab] = useState<Tab>(initialTab);
 
@@ -122,7 +121,7 @@ export default function ProjectSettingsModal({ project, onClose, onOpenProject, 
     try {
       await archiveProject(project.id);
       archiveProjectLocally(project.id);
-      requestClose();
+      onClose();
     } catch {
       alert("تعذّرت أرشفة المشروع.");
     } finally {
@@ -136,7 +135,7 @@ export default function ProjectSettingsModal({ project, onClose, onOpenProject, 
     try {
       await forceDeleteProject(project.id);
       archiveProjectLocally(project.id);
-      requestClose();
+      onClose();
     } catch {
       alert("تعذّر حذف المشروع.");
     } finally {
@@ -173,24 +172,24 @@ export default function ProjectSettingsModal({ project, onClose, onOpenProject, 
   const labelCls = "mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-soft";
 
   return (
-    <div
-      className={`fixed inset-0 z-50 flex items-center justify-center bg-ink/30 p-4 backdrop-blur-sm ${closing ? "" : "animate-fade-in"}`}
-      onMouseDown={(e) => e.target === e.currentTarget && requestClose()}
-    >
-      <div
-        className={`terrace-card flex max-h-[88vh] w-full max-w-4xl flex-col overflow-hidden bg-card shadow-2xl ${closing ? "animate-scale-out" : "animate-scale-in"}`}
+    <div>
+      <button
+        onClick={onClose}
+        className="mb-3 inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-sm font-medium text-ink-soft transition-colors duration-150 hover:bg-ink/5"
       >
+        <ChevronLeft size={15} className="rtl:rotate-180" />
+        العودة إلى المشروع
+      </button>
+
+      <div className="terrace-card border border-line bg-card">
         <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-4">
           <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-ink">
             <ShieldCheck size={19} className="text-terrace-600" />
             إعدادات المشروع
           </h2>
-          <button onClick={requestClose} className="rounded-lg p-2 text-ink-soft transition-colors duration-150 hover:bg-ink/5">
-            <X size={19} />
-          </button>
         </div>
 
-        <div className="grid flex-1 grid-cols-1 gap-5 overflow-y-auto p-5 md:grid-cols-[260px_1fr]">
+        <div className="grid grid-cols-1 gap-5 p-5 md:grid-cols-[260px_1fr]">
           {/* Sidebar */}
           <div className="space-y-4">
             <div className="terrace-card border border-line bg-basin-2/40 p-4 text-center">

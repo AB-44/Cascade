@@ -125,7 +125,11 @@ export default function ProjectsPanel({ onClose, onOpenProject, initialEditProje
               return (
                 <div
                   key={project.id}
-                  className="group terrace-card flex flex-col gap-3 border border-line bg-basin-2/40 p-4 transition-all duration-150 hover:border-terrace-500/40 hover:bg-basin-2/70"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => onOpenProject(project.id)}
+                  onKeyDown={(e) => e.key === "Enter" && onOpenProject(project.id)}
+                  className="group terrace-card flex cursor-pointer flex-col gap-3 border border-line bg-basin-2/40 p-4 text-start transition-all duration-150 hover:border-terrace-500/40 hover:bg-basin-2/70"
                   style={{ borderInlineStartWidth: 3, borderInlineStartColor: project.color }}
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -152,14 +156,18 @@ export default function ProjectsPanel({ onClose, onOpenProject, initialEditProje
 
                     <div className="flex items-center gap-1 opacity-100 transition-opacity duration-150 sm:opacity-0 sm:group-hover:opacity-100">
                       <button
-                        onClick={() => onOpenProject(project.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onOpenProject(project.id);
+                        }}
                         title={t(lang, "openProject")}
                         className="rounded-md p-1.5 text-terrace-600 transition-colors duration-150 hover:bg-terrace-500/10"
                       >
                         <FolderOpen size={16} />
                       </button>
                       <button
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           setEditing(project);
                           setCreating(false);
                         }}
@@ -170,7 +178,10 @@ export default function ProjectsPanel({ onClose, onOpenProject, initialEditProje
                       </button>
                       <button
                         disabled={archivingId === project.id}
-                        onClick={() => setConfirmArchive(project)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setConfirmArchive(project);
+                        }}
                         title={t(lang, "archive")}
                         className="rounded-md p-1.5 text-ink-soft transition-colors duration-150 hover:bg-clay/10 hover:text-clay disabled:opacity-50"
                       >

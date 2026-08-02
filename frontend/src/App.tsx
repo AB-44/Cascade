@@ -61,7 +61,7 @@ import { exportPDF, exportPNG, printElement } from "./lib/exporter";
 import { t, tFormat } from "./lib/i18n";
 import type { Lang } from "./lib/i18n";
 
-type View = "tree" | "roadmap" | "dashboard" | "deadlines" | "team" | "assigned" | "projects" | "projectDetail" | "archive";
+type View = "tree" | "roadmap" | "dashboard" | "deadlines" | "team" | "assigned" | "projects" | "projectDetail" | "projectSettings" | "archive";
 
 function Shell() {
   const { goals, darkMode, setDarkMode, importData, lang, setLang, completeAll, members, projects, syncStatus } = useStore();
@@ -798,8 +798,18 @@ function Shell() {
               project={activeProject}
               onOpenRoadmap={() => setView("roadmap")}
               onBack={() => setView("projects")}
-              onManageProject={(tab) => setProjectSettingsTab(tab ?? "general")}
+              onManageProject={(tab) => {
+                setProjectSettingsTab(tab ?? "general");
+                setView("projectSettings");
+              }}
               onExportReport={() => doExport("pdf")}
+            />
+          ) : view === "projectSettings" && !isSharedView && activeProject ? (
+            <ProjectSettingsModal
+              project={activeProject}
+              initialTab={projectSettingsTab ?? "general"}
+              onClose={() => setView("projectDetail")}
+              onOpenProject={() => setView("projectDetail")}
             />
           ) : view === "archive" ? (
             <ArchivePage />
@@ -875,21 +885,12 @@ function Shell() {
           }}
           onOpenProject={(projectId) => {
             setCurrentProjectId(projectId);
+            setProjectSettingsTab("general");
+            setView("projectSettings");
             setShowProjects(false);
             setProjectsPanelTarget(undefined);
             setProjectsPanelCreateMode(false);
             clearFilters();
-          }}
-        />
-      )}
-      {projectSettingsTab && activeProject && (
-        <ProjectSettingsModal
-          project={activeProject}
-          initialTab={projectSettingsTab}
-          onClose={() => setProjectSettingsTab(null)}
-          onOpenProject={() => {
-            setProjectSettingsTab(null);
-            setView("projectDetail");
           }}
         />
       )}
