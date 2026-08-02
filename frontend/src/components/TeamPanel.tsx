@@ -712,7 +712,7 @@ function RowListItem({
   );
 }
 
-function MemberForm({
+export function MemberForm({
   member,
   onClose,
   onSave,

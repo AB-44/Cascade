@@ -11,12 +11,13 @@ import {
   Users,
   Loader2,
   ShieldCheck,
+  Plus,
 } from "lucide-react";
 import { useStore } from "../store";
 import { t } from "../lib/i18n";
 import type { Project } from "../types";
 import { getStoredUser, archiveProject, forceDeleteProject } from "../lib/api";
-import { MemberAvatar } from "./TeamPanel";
+import { MemberAvatar, MemberForm } from "./TeamPanel";
 import { Select } from "./ui";
 import { PROJECT_COLORS, ProjectCollaboratorsSection } from "./ProjectsPanel";
 import ConfirmModal from "./ConfirmModal";
@@ -44,7 +45,7 @@ const STATUS_OPTIONS = [
  * modal) so it sits in the normal navigation flow like Team/Projects do.
  */
 export default function ProjectSettingsModal({ project, onClose, onOpenProject, initialTab = "general" }: Props) {
-  const { updateProject, archiveProjectLocally, goals, members, lang } = useStore();
+  const { updateProject, archiveProjectLocally, goals, members, addMember, lang } = useStore();
   const [tab, setTab] = useState<Tab>(initialTab);
 
   const [name, setName] = useState(project.name);
@@ -62,6 +63,7 @@ export default function ProjectSettingsModal({ project, onClose, onOpenProject, 
   const [deleting, setDeleting] = useState(false);
   const [confirmArchive, setConfirmArchive] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showAddMember, setShowAddMember] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const projectGoals = goals.filter((g) => g.projectId === project.id);
@@ -452,6 +454,12 @@ export default function ProjectSettingsModal({ project, onClose, onOpenProject, 
                         </button>
                       );
                     })}
+                    <button
+                      onClick={() => setShowAddMember(true)}
+                      className="flex items-center gap-1.5 rounded-full border border-dashed border-line py-1 ps-1.5 pe-2.5 text-xs font-medium text-ink-soft transition-colors duration-150 hover:border-terrace-400 hover:bg-terrace-500/5 hover:text-terrace-700"
+                    >
+                      <Plus size={14} /> إضافة عضو
+                    </button>
                   </div>
                   <button
                     onClick={handleSave}
@@ -517,6 +525,21 @@ export default function ProjectSettingsModal({ project, onClose, onOpenProject, 
           cancelLabel="إلغاء"
           onConfirm={handleDelete}
           onCancel={() => setConfirmDelete(false)}
+        />
+      )}
+
+      {showAddMember && (
+        <MemberForm
+          member={null}
+          onClose={() => setShowAddMember(false)}
+          onSave={(data) => {
+            // Added from this project's context, so — unlike the general
+            // Team page — also add them straight to this project's
+            // memberIds, instead of leaving a second manual step.
+            const created = addMember(data);
+            setMemberIds((prev) => [...prev, created.id]);
+            setShowAddMember(false);
+          }}
         />
       )}
     </div>
