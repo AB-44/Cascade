@@ -340,35 +340,50 @@ function Shell() {
       icon: LayoutDashboard,
       label: t(lang, "dashboard"),
       active: !isSharedView && view === "dashboard",
-      onClick: () => setView("dashboard"),
+      onClick: () => {
+        if (isSharedView) setCurrentProjectId("all");
+        setView("dashboard");
+      },
     },
     {
       id: "assigned",
       icon: Inbox,
       label: t(lang, "assignedToMe"),
       active: !isSharedView && view === "assigned",
-      onClick: () => setView("assigned"),
+      onClick: () => {
+        if (isSharedView) setCurrentProjectId("all");
+        setView("assigned");
+      },
     },
     {
       id: "team",
       icon: Users,
       label: t(lang, "teamMembers"),
       active: !isSharedView && view === "team",
-      onClick: () => setView("team"),
+      onClick: () => {
+        if (isSharedView) setCurrentProjectId("all");
+        setView("team");
+      },
     },
     {
       id: "projects",
       icon: FolderDot,
       label: t(lang, "projects"),
       active: !isSharedView && view === "projects",
-      onClick: () => setView("projects"),
+      onClick: () => {
+        if (isSharedView) setCurrentProjectId("all");
+        setView("projects");
+      },
     },
     {
       id: "archive",
       icon: Archive,
       label: t(lang, "archive"),
       active: view === "archive",
-      onClick: () => setView("archive"),
+      onClick: () => {
+        if (isSharedView) setCurrentProjectId("all");
+        setView("archive");
+      },
     },
     {
       id: "templates",
