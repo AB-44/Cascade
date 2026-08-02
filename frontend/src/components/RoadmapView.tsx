@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Pencil, Plus, Trash2, User, ListTodo, ChevronLeft, Lock, CheckCircle2 } from "lucide-react";
+import { Pencil, Plus, Trash2, User, ListTodo, ChevronLeft, Lock } from "lucide-react";
 import type { Goal } from "../types";
 import { useStore, useTree } from "../store";
-import { priorityColor, isStageLocked, blockingGoals } from "../lib/goals";
+import { priorityColor, isStageLocked } from "../lib/goals";
 import type { TreeNode } from "../lib/goals";
 import { ProgressBar } from "./ui";
 import { BlockedBadge, DeadlineBadge } from "./GoalBadges";
@@ -31,26 +31,19 @@ function filterTree(nodes: TreeNode[], filter: (g: Goal) => boolean): TreeNode[]
   return out;
 }
 
+const CARDS_PAGE_SIZE = 10;
+
 export default function RoadmapView({ onEdit, onAddChild, filter, sequentialLock = false, allowNewGoals = true }: Props) {
   const tree = useTree(false);
-  const { goals, effProgress, lang, updateGoal, deleteGoal } = useStore();
+  const { goals, effProgress, lang, deleteGoal } = useStore();
   const stages = filterTree(tree, filter);
   const [confirmDeleteStage, setConfirmDeleteStage] = useState<Goal | null>(null);
+  // How many cards are currently shown per stage — keyed by stage goal id,
+  // since each column's "show more" is independent of the others. A stage
+  // not in this map just uses the default page size.
+  const [visibleCounts, setVisibleCounts] = useState<Record<string, number>>({});
 
   if (stages.length === 0) return null;
-
-  const toggleComplete = (goal: Goal) => {
-    if (goal.status === "Completed") {
-      updateGoal(goal.id, { status: "In Progress", progress: goal.autoProgress ? goal.progress : Math.min(goal.progress, 90) });
-      return;
-    }
-    const blockers = blockingGoals(goals, goal);
-    if (blockers.length > 0) {
-      alert(tFormat(lang, "blockedAlert", { blockers: blockers.map((b) => b.name).join(", ") }));
-      return;
-    }
-    updateGoal(goal.id, { status: "Completed", progress: 100 });
-  };
 
   return (
     <>
@@ -132,19 +125,31 @@ export default function RoadmapView({ onEdit, onAddChild, filter, sequentialLock
                     {stage.children.length === 0 && (
                       <p className="py-4 text-center text-xs text-ink-soft">{t(lang, "noSubGoals")}</p>
                     )}
-                    {stage.children.map((c) => (
-                      <RoadmapCard key={c.goal.id} node={c} onEdit={onEdit} onDelete={deleteGoal} onAddChild={allowNewGoals ? onAddChild : undefined} depth={0} />
-                    ))}
-                    <button
-                      onClick={() => toggleComplete(stage.goal)}
-                      className={`flex w-full items-center justify-center gap-1.5 rounded-lg border py-1.5 text-xs font-semibold transition-colors duration-150 ${stage.goal.status === "Completed"
-                          ? "border-terrace-500/40 bg-terrace-500/10 text-terrace-700"
-                          : "border-line text-ink-soft hover:border-terrace-300 hover:bg-terrace-500/10 hover:text-terrace-700"
-                        }`}
-                    >
-                      <CheckCircle2 size={14} />
-                      {stage.goal.status === "Completed" ? t(lang, "completed") : t(lang, "markComplete")}
-                    </button>
+                    {(() => {
+                      const visibleCount = visibleCounts[stage.goal.id] ?? CARDS_PAGE_SIZE;
+                      const visibleChildren = stage.children.slice(0, visibleCount);
+                      const remaining = stage.children.length - visibleChildren.length;
+                      return (
+                        <>
+                          {visibleChildren.map((c) => (
+                            <RoadmapCard key={c.goal.id} node={c} onEdit={onEdit} onDelete={deleteGoal} onAddChild={allowNewGoals ? onAddChild : undefined} depth={0} />
+                          ))}
+                          {remaining > 0 && (
+                            <button
+                              onClick={() =>
+                                setVisibleCounts((prev) => ({
+                                  ...prev,
+                                  [stage.goal.id]: visibleCount + CARDS_PAGE_SIZE,
+                                }))
+                              }
+                              className="w-full rounded-lg border border-dashed border-line py-1.5 text-xs font-medium text-ink-soft transition-colors duration-150 hover:border-terrace-300 hover:bg-terrace-500/5 hover:text-terrace-700"
+                            >
+                              {t(lang, "showMore")} ({remaining})
+                            </button>
+                          )}
+                        </>
+                      );
+                    })()}
                   </>
                 )}
               </div>

@@ -18,7 +18,6 @@ import {
   Target,
   Filter,
   Globe,
-  CheckCircle,
   Users,
   FolderDot,
   CloudCheck,
@@ -46,6 +45,7 @@ import Dashboard from "./components/Dashboard";
 import TemplatesPanel from "./components/TemplatesPanel";
 import ArchivePage from "./components/ArchivePage";
 import NotificationBell from "./components/NotificationBell";
+import ActiveTasksMenu from "./components/ActiveTasksMenu";
 import TeamPanel from "./components/TeamPanel";
 import ProjectsPanel from "./components/ProjectsPanel";
 import ProjectsPage from "./components/ProjectsPage";
@@ -64,7 +64,7 @@ import type { Lang } from "./lib/i18n";
 type View = "tree" | "roadmap" | "dashboard" | "deadlines" | "team" | "assigned" | "projects" | "projectDetail" | "projectSettings" | "archive";
 
 function Shell() {
-  const { goals, darkMode, setDarkMode, importData, lang, setLang, completeAll, members, projects, syncStatus } = useStore();
+  const { goals, darkMode, setDarkMode, importData, lang, setLang, members, projects, syncStatus } = useStore();
   const [view, setView] = useState<View>("roadmap");
   const [formGoal, setFormGoal] = useState<Goal | null>(null);
   const [formParent, setFormParent] = useState<string | null>(null);
@@ -210,7 +210,6 @@ function Shell() {
   const activeGoals = goals.filter(
     (g) => !g.archived && roadmapScopeFilter(g) && projectFilter(g),
   );
-  const incompleteCount = activeGoals.filter((g) => g.status !== "Completed").length;
   const hasGoals = activeGoals.length > 0;
 
   const filterFn = (g: Goal) => {
@@ -319,13 +318,6 @@ function Shell() {
     setLangOpen(false);
   };
 
-  const handleCompleteAll = () => {
-    if (incompleteCount === 0) return;
-    if (confirm(tFormat(lang, "confirmCompleteAll", { count: incompleteCount }))) {
-      completeAll(roadmapOwnerId);
-    }
-  };
-
   const clearFilters = () => {
     setFAssignee("");
     setFPriority("");
@@ -417,17 +409,7 @@ function Shell() {
           </div>
 
           <div className="flex items-center gap-1.5">
-            {/* Complete All */}
-            {incompleteCount > 0 && view !== "dashboard" && view !== "assigned" && (
-              <button
-                onClick={handleCompleteAll}
-                title={t(lang, "completeAll")}
-                className="hidden sm:inline-flex h-9 items-center gap-1.5 rounded-lg border border-green-300 bg-green-50 px-3 text-sm font-semibold text-green-700 transition hover:bg-green-100 dark:border-green-500/30 dark:bg-green-500/10 dark:text-green-300 dark:hover:bg-green-500/20"
-              >
-                <CheckCircle size={16} />
-                {t(lang, "completeAll")} ({incompleteCount})
-              </button>
-            )}
+            <ActiveTasksMenu onGotoTasks={() => setView("tree")} />
 
             <NotificationBell onGoto={gotoGoal} />
             <button

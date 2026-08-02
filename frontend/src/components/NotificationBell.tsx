@@ -129,12 +129,14 @@ export default function NotificationBell({ onGoto }: { onGoto: (id: string) => v
                 })}
               </div>
 
-              {hasMore && (
+              {(hasMore || visibleCount > PAGE_SIZE) && (
                 <button
-                  onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+                  onClick={() =>
+                    hasMore ? setVisibleCount((c) => c + PAGE_SIZE) : setVisibleCount(PAGE_SIZE)
+                  }
                   className="mt-2 w-full rounded-lg py-2 text-center text-xs font-medium text-ink-soft transition-colors duration-150 hover:bg-basin-2 hover:text-ink"
                 >
-                  +{count - visibleCount} {t(lang, "notifications")}
+                  {hasMore ? `+${count - visibleCount} ${t(lang, "notifications")}` : t(lang, "showLess")}
                 </button>
               )}
             </div>
@@ -145,12 +147,12 @@ export default function NotificationBell({ onGoto }: { onGoto: (id: string) => v
               <Settings size={13} />
               {t(lang, "settings")}
             </span>
-            {count > 0 && (
+            {count > PAGE_SIZE && (
               <button
-                onClick={() => setVisibleCount(count)}
+                onClick={() => setVisibleCount(hasMore ? count : PAGE_SIZE)}
                 className="flex items-center gap-1 text-xs font-medium text-terrace-600 transition-colors duration-150 hover:text-terrace-700"
               >
-                {t(lang, "viewAllNotifications")}
+                {hasMore ? t(lang, "viewAllNotifications") : t(lang, "showLess")}
                 <ArrowLeft size={13} className="rtl:rotate-180" />
               </button>
             )}

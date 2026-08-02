@@ -21,10 +21,11 @@ import {
   GripVertical,
   StickyNote,
   Pencil,
+  CheckCircle2,
 } from "lucide-react";
 import type { Goal, ChecklistItem, TimeSession } from "../types";
 import { useStore } from "../store";
-import { deadlineState, priorityColor } from "../lib/goals";
+import { deadlineState, priorityColor, blockingGoals } from "../lib/goals";
 import { uid } from "../lib/storage";
 import { t, tFormat } from "../lib/i18n";
 import { useClosing } from "../lib/useClosing";
@@ -87,7 +88,7 @@ export function formatElapsed(ms: number): string {
 
 export default function TaskDetailPanel({ goal, onClose, onEdit, onDelete, onAddChild }: Props) {
   const { closing, requestClose } = useClosing(onClose);
-  const { updateGoal, effProgress, lang, members } = useStore();
+  const { updateGoal, effProgress, lang, members, goals } = useStore();
   const member = members.find((m) => m.name === goal.assignedTo);
   const [newItem, setNewItem] = useState("");
   const [preview, setPreview] = useState<{ images: string[]; index: number } | null>(null);
@@ -98,6 +99,7 @@ export default function TaskDetailPanel({ goal, onClose, onEdit, onDelete, onAdd
 
   const [showTargetModal, setShowTargetModal] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmIncompleteChecklist, setConfirmIncompleteChecklist] = useState(false);
 
   const anyItemRunning = goal.checklist.some((c) => c.startedAt);
 
@@ -146,6 +148,28 @@ export default function TaskDetailPanel({ goal, onClose, onEdit, onDelete, onAdd
       breakReminderFired: false,
     });
     setNow(Date.now());
+  };
+
+  const completeGoal = () => {
+    updateGoal(goal.id, { status: "Completed", progress: 100, startedAt: null });
+  };
+
+  const markComplete = () => {
+    const blockers = blockingGoals(goals, goal);
+    if (blockers.length > 0) {
+      alert(tFormat(lang, "blockedAlert", { blockers: blockers.map((b) => b.name).join(", ") }));
+      return;
+    }
+    const incompleteCount = goal.checklist.filter((c) => !c.done).length;
+    if (incompleteCount > 0) {
+      setConfirmIncompleteChecklist(true);
+      return;
+    }
+    completeGoal();
+  };
+
+  const reopenTask = () => {
+    updateGoal(goal.id, { status: "In Progress", progress: goal.autoProgress ? goal.progress : Math.min(goal.progress, 90) });
   };
 
   const elapsedMs =
@@ -522,6 +546,27 @@ export default function TaskDetailPanel({ goal, onClose, onEdit, onDelete, onAdd
               )}
             </div>
 
+            {/* mark complete / reopen */}
+            <div className="mt-2">
+              {goal.status === "Completed" ? (
+                <button
+                  onClick={reopenTask}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-terrace-500/40 bg-terrace-500/10 px-3 py-1.5 text-xs font-semibold text-terrace-700 transition-colors duration-150 hover:bg-terrace-500/15"
+                >
+                  <CheckCircle2 size={14} />
+                  {t(lang, "completed")} · {t(lang, "reopenTask")}
+                </button>
+              ) : (
+                <button
+                  onClick={markComplete}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-terrace-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-all duration-150 hover:bg-terrace-700 active:scale-[0.97]"
+                >
+                  <CheckCircle2 size={14} />
+                  {t(lang, "completeTask")}
+                </button>
+              )}
+            </div>
+
             {/* time report */}
             {(goal.timeSessions?.length ?? 0) > 0 && (
               <TimeReport sessions={goal.timeSessions!} estimatedMs={goal.estimatedMs} lang={lang} />
@@ -725,6 +770,23 @@ export default function TaskDetailPanel({ goal, onClose, onEdit, onDelete, onAdd
             requestClose();
           }}
           onCancel={() => setConfirmDelete(false)}
+        />
+      )}
+
+      {confirmIncompleteChecklist && (
+        <ConfirmModal
+          icon={CheckCircle2}
+          title={t(lang, "incompleteChecklistTitle")}
+          message={tFormat(lang, "incompleteChecklistMessage", {
+            count: goal.checklist.filter((c) => !c.done).length,
+          })}
+          confirmLabel={t(lang, "completeAnyway")}
+          cancelLabel={t(lang, "cancel")}
+          onConfirm={() => {
+            setConfirmIncompleteChecklist(false);
+            completeGoal();
+          }}
+          onCancel={() => setConfirmIncompleteChecklist(false)}
         />
       )}
     </div>
