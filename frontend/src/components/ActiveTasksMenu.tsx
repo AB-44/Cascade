@@ -1,26 +1,36 @@
 import { useEffect, useRef, useState } from "react";
-import { Timer, Pause, ChevronDown, ArrowLeft } from "lucide-react";
+import { Timer, Pause, Play, X, ChevronDown, ArrowLeft } from "lucide-react";
 import { useStore } from "../store";
 import { t } from "../lib/i18n";
 import { uid } from "../lib/storage";
 import { formatElapsed } from "./TaskDetailPanel";
 import type { Goal, TimeSession } from "../types";
 
-/** Replaces the old header-wide "Complete All" button. Surfaces whatever
- *  goals currently have a running focus timer (goal.startedAt set), lets
- *  the person pause any of them right from the header, and jumps to the
- *  full task list for anything deeper. Purely goal-level timers here —
- *  a checklist item running inside a goal doesn't count as a separate
- *  "active task" for this summary. */
+/** Replaces the old header-wide "Complete All" button. Surfaces every
+ *  goal that's part of an active focus session — either running right
+ *  now (goal.startedAt set) or paused mid-session (timerPaused, with
+ *  time already accumulated) — so pausing a task doesn't make it vanish
+ *  from here; it just switches to a resume button. The only way a task
+ *  leaves this list is the explicit dismiss (X), which clears the
+ *  session tracking without touching the goal's own progress/status. A
+ *  checklist item running inside a goal doesn't count as a separate
+ *  "active task" for this summary — goal-level timers only. */
 export default function ActiveTasksMenu({ onGotoTasks, onGoto }: { onGotoTasks: () => void; onGoto: (id: string) => void }) {
   const { goals, updateGoal, lang } = useStore();
   const [open, setOpen] = useState(false);
   const [now, setNow] = useState(Date.now());
   const ref = useRef<HTMLDivElement>(null);
 
-  const activeGoals = goals
-    .filter((g) => !g.archived && g.startedAt)
-    .sort((a, b) => new Date(b.startedAt!).getTime() - new Date(a.startedAt!).getTime());
+  const trackedGoals = goals
+    .filter((g) => !g.archived && (g.startedAt || (g.timerPaused && (g.accumulatedMs ?? 0) > 0)))
+    .sort((a, b) => {
+      // Running tasks first, most recently started first; paused ones
+      // after, most recently paused first (best-effort via updatedAt).
+      if (!!a.startedAt !== !!b.startedAt) return a.startedAt ? -1 : 1;
+      const aTime = a.startedAt ?? a.updatedAt ?? "";
+      const bTime = b.startedAt ?? b.updatedAt ?? "";
+      return new Date(bTime).getTime() - new Date(aTime).getTime();
+    });
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
@@ -30,14 +40,15 @@ export default function ActiveTasksMenu({ onGotoTasks, onGoto }: { onGotoTasks: 
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
+  const hasRunning = trackedGoals.some((g) => g.startedAt);
+
   useEffect(() => {
-    if (activeGoals.length === 0) return;
+    if (!hasRunning) return;
     const interval = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeGoals.length]);
+  }, [hasRunning]);
 
-  if (activeGoals.length === 0) return null;
+  if (trackedGoals.length === 0) return null;
 
   const elapsedFor = (g: Goal) =>
     (g.accumulatedMs ?? 0) + (g.startedAt ? now - new Date(g.startedAt).getTime() : 0);
@@ -60,7 +71,25 @@ export default function ActiveTasksMenu({ onGotoTasks, onGoto }: { onGotoTasks: 
     });
   };
 
-  const featured = activeGoals[0];
+  const resume = (g: Goal) => {
+    updateGoal(g.id, {
+      startedAt: new Date().toISOString(),
+      timerPaused: false,
+      breakReminderFired: false,
+    });
+  };
+
+  // Just clears this task's session tracking so it drops off the list —
+  // never touches progress, status, or the checklist itself.
+  const dismiss = (g: Goal) => {
+    updateGoal(g.id, {
+      startedAt: null,
+      accumulatedMs: 0,
+      timerPaused: false,
+    });
+  };
+
+  const featured = trackedGoals.find((g) => g.startedAt) ?? trackedGoals[0];
 
   const formatClock = (ms: number) => {
     const totalSec = Math.floor(ms / 1000);
@@ -99,44 +128,44 @@ export default function ActiveTasksMenu({ onGotoTasks, onGoto }: { onGotoTasks: 
             <Timer size={15} className="text-terrace-600" />
             <span className="text-sm font-bold text-ink">{t(lang, "activeTasks")}</span>
             <span className="rounded-full bg-terrace-500/12 px-1.5 py-0.5 text-[11px] font-semibold text-terrace-700">
-              {activeGoals.length}
+              {trackedGoals.length}
             </span>
           </div>
 
           <div className="max-h-80 overflow-y-auto p-2">
-            {activeGoals.map((g) => (
-              <button
+            {trackedGoals.map((g) => (
+              <div
                 key={g.id}
-                onClick={() => {
-                  setOpen(false);
-                  onGoto(g.id);
-                }}
-                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-start transition-colors duration-150 hover:bg-basin-2"
+                className="group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 transition-colors duration-150 hover:bg-basin-2"
               >
-                <span className="h-2 w-2 shrink-0 rounded-full bg-terrace-500" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-ink">{g.name}</p>
-                  <p className="font-mono-num text-xs text-ink-soft">{formatElapsed(elapsedFor(g))}</p>
-                </div>
-                <span
-                  role="button"
-                  tabIndex={0}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    pause(g);
+                <button
+                  onClick={() => {
+                    setOpen(false);
+                    onGoto(g.id);
                   }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.stopPropagation();
-                      pause(g);
-                    }
-                  }}
-                  title={t(lang, "pauseTask")}
+                  className="flex min-w-0 flex-1 items-center gap-2.5 text-start"
+                >
+                  <span className={`h-2 w-2 shrink-0 rounded-full ${g.startedAt ? "bg-terrace-500" : "bg-ink-soft/40"}`} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-ink">{g.name}</p>
+                    <p className="font-mono-num text-xs text-ink-soft">{formatElapsed(elapsedFor(g))}</p>
+                  </div>
+                </button>
+                <button
+                  onClick={() => (g.startedAt ? pause(g) : resume(g))}
+                  title={t(lang, g.startedAt ? "pauseTask" : "resumeTask")}
                   className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-line text-ink-soft transition-colors duration-150 hover:bg-ink/5 hover:text-ink"
                 >
-                  <Pause size={13} />
-                </span>
-              </button>
+                  {g.startedAt ? <Pause size={13} /> : <Play size={13} />}
+                </button>
+                <button
+                  onClick={() => dismiss(g)}
+                  title={t(lang, "removeFromActiveTasks")}
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-ink-soft/60 opacity-0 transition-colors duration-150 hover:bg-clay/10 hover:text-clay group-hover:opacity-100"
+                >
+                  <X size={13} />
+                </button>
+              </div>
             ))}
           </div>
 
