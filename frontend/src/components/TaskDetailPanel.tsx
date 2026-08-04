@@ -38,6 +38,9 @@ interface Props {
   onEdit?: (g: Goal) => void;
   onDelete?: (id: string) => void;
   onAddChild?: (parentId: string) => void;
+  /** When true, marking this task (or its checklist items) as Completed is
+   *  disabled — used when the parent stage is sequentially locked. */
+  completionLocked?: boolean;
 }
 
 const MAX_IMAGES_PER_ITEM = 6;
@@ -86,7 +89,7 @@ export function formatElapsed(ms: number): string {
   return `${m}m`;
 }
 
-export default function TaskDetailPanel({ goal, onClose, onEdit, onDelete, onAddChild }: Props) {
+export default function TaskDetailPanel({ goal, onClose, onEdit, onDelete, onAddChild, completionLocked = false }: Props) {
   const { closing, requestClose } = useClosing(onClose);
   const { updateGoal, effProgress, lang, members, goals } = useStore();
   const member = members.find((m) => m.name === goal.assignedTo);
@@ -155,6 +158,7 @@ export default function TaskDetailPanel({ goal, onClose, onEdit, onDelete, onAdd
   };
 
   const markComplete = () => {
+    if (completionLocked) return;
     const blockers = blockingGoals(goals, goal);
     if (blockers.length > 0) {
       alert(tFormat(lang, "blockedAlert", { blockers: blockers.map((b) => b.name).join(", ") }));
@@ -556,6 +560,14 @@ export default function TaskDetailPanel({ goal, onClose, onEdit, onDelete, onAdd
                   <CheckCircle2 size={14} />
                   {t(lang, "completed")} · {t(lang, "reopenTask")}
                 </button>
+              ) : completionLocked ? (
+                <span
+                  title={t(lang, "stageLocked")}
+                  className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-lg border border-amber-300/50 bg-amber-50/80 px-3 py-1.5 text-xs font-semibold text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400"
+                >
+                  <CheckCircle2 size={14} />
+                  {t(lang, "stageLocked")}
+                </span>
               ) : (
                 <button
                   onClick={markComplete}
@@ -603,7 +615,7 @@ export default function TaskDetailPanel({ goal, onClose, onEdit, onDelete, onAdd
                   </span>
                 )}
               </h3>
-              {totalItems > 0 && doneItems < totalItems && (
+              {totalItems > 0 && doneItems < totalItems && !completionLocked && (
                 <button
                   onClick={markAllDone}
                   className="text-xs font-medium text-terrace-600 transition-colors duration-150 hover:text-terrace-700"
@@ -629,7 +641,7 @@ export default function TaskDetailPanel({ goal, onClose, onEdit, onDelete, onAdd
                   <TaskItem
                     key={item.id}
                     item={item}
-                    onToggle={() => toggleCheck(item.id)}
+                    onToggle={completionLocked ? () => {} : () => toggleCheck(item.id)}
                     onTextChange={(text) => updateText(item.id, text)}
                     onNotesChange={(notes) => updateItemNotes(item.id, notes)}
                     onAddImages={(files) => addImagesToItem(item.id, files)}
@@ -642,6 +654,7 @@ export default function TaskDetailPanel({ goal, onClose, onEdit, onDelete, onAdd
                     onResumeTimer={() => resumeItemTimer(item.id)}
                     now={now}
                     lang={lang}
+                    checkLocked={completionLocked}
                   />
                 ))}
                 <ListEndDropZone onDrop={(id) => reorderChecklist(id, null)} />
@@ -843,6 +856,7 @@ function TaskItem({
   onResumeTimer,
   now,
   lang,
+  checkLocked = false,
 }: {
   item: ChecklistItem;
   onToggle: () => void;
@@ -858,6 +872,8 @@ function TaskItem({
   onResumeTimer: () => void;
   now: number;
   lang: "en" | "ar";
+  /** When true, the toggle checkbox is visually locked (cannot check off). */
+  checkLocked?: boolean;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -901,11 +917,14 @@ function TaskItem({
           <GripVertical size={16} />
         </span>
         <button
-          onClick={onToggle}
-          className={`mt-1 shrink-0 transition-all duration-150 active:scale-90 ${
-            item.done
-              ? "text-terrace-600"
-              : "text-ink-soft/40 hover:text-terrace-500"
+          onClick={checkLocked ? undefined : onToggle}
+          title={checkLocked ? t(lang, "stageLocked") : undefined}
+          className={`mt-1 shrink-0 transition-all duration-150 ${
+            checkLocked
+              ? "cursor-not-allowed text-amber-400/60"
+              : item.done
+                ? "text-terrace-600 active:scale-90"
+                : "text-ink-soft/40 hover:text-terrace-500 active:scale-90"
           }`}
         >
           {item.done ? <CheckCircle size={22} /> : <Circle size={22} />}

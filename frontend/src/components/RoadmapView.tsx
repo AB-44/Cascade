@@ -74,7 +74,7 @@ export default function RoadmapView({ onEdit, onAddChild, filter, sequentialLock
             )}
             <div
               data-goal-id={stage.goal.id}
-              className={`terrace-card flex w-[272px] shrink-0 flex-col overflow-hidden border border-line bg-card shadow-sm transition-opacity duration-150 ${locked ? "opacity-60" : ""
+              className={`terrace-card flex w-[272px] shrink-0 flex-col overflow-hidden border border-line bg-card shadow-sm transition-opacity duration-150 ${locked ? "opacity-75" : ""
                 }`}
               style={{ borderTopWidth: 3, borderTopColor: stage.goal.color || "var(--color-terrace-500)" }}
             >
@@ -84,35 +84,33 @@ export default function RoadmapView({ onEdit, onAddChild, filter, sequentialLock
                   <span className="text-[11px] font-bold uppercase tracking-wider text-ink-soft">
                     {t(lang, "stage")} {i + 1}
                   </span>
-                  {locked ? (
-                    <Lock size={14} className="text-ink-soft" />
-                  ) : (
-                    <div className="flex">
-                      {allowNewGoals && (
-                        <button
-                          onClick={() => onAddChild(stage.goal.id)}
-                          title={t(lang, "addSubGoal")}
-                          className="rounded p-1 text-ink-soft transition-colors duration-150 hover:bg-terrace-500/10 hover:text-terrace-600"
-                        >
-                          <Plus size={14} />
-                        </button>
-                      )}
+                  {/* Even when locked, allow editing/adding/deleting tasks */}
+                  <div className="flex items-center gap-0.5">
+                    {locked && <Lock size={13} className="me-1 text-ink-soft/60" />}
+                    {allowNewGoals && (
                       <button
-                        onClick={() => onEdit(stage.goal)}
-                        title={t(lang, "edit")}
-                        className="rounded p-1 text-ink-soft transition-colors duration-150 hover:bg-ink/5 hover:text-ink"
+                        onClick={() => onAddChild(stage.goal.id)}
+                        title={t(lang, "addSubGoal")}
+                        className="rounded p-1 text-ink-soft transition-colors duration-150 hover:bg-terrace-500/10 hover:text-terrace-600"
                       >
-                        <Pencil size={14} />
+                        <Plus size={14} />
                       </button>
-                      <button
-                        onClick={() => setConfirmDeleteStage(stage.goal)}
-                        title={t(lang, "delete")}
-                        className="rounded p-1 text-ink-soft transition-colors duration-150 hover:bg-clay/10 hover:text-clay"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  )}
+                    )}
+                    <button
+                      onClick={() => onEdit(stage.goal)}
+                      title={t(lang, "edit")}
+                      className="rounded p-1 text-ink-soft transition-colors duration-150 hover:bg-ink/5 hover:text-ink"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                    <button
+                      onClick={() => setConfirmDeleteStage(stage.goal)}
+                      title={t(lang, "delete")}
+                      className="rounded p-1 text-ink-soft transition-colors duration-150 hover:bg-clay/10 hover:text-clay"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 </div>
                 <h3 className="mt-1 flex items-center gap-2 font-display text-lg font-semibold text-ink">
                   <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: priorityColor(stage.goal.priority) }} />
@@ -127,45 +125,53 @@ export default function RoadmapView({ onEdit, onAddChild, filter, sequentialLock
                   <DeadlineBadge goal={stage.goal} />
                 </div>
               </div>
-              {/* sub goals */}
+
+              {/* Locked notice banner — always visible when locked */}
+              {locked && (
+                <div className="flex items-center gap-1.5 border-b border-amber-200/60 bg-amber-50/70 px-3 py-1.5 text-[11px] text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-400">
+                  <Lock size={10} className="shrink-0" />
+                  {t(lang, "stageLocked")}
+                </div>
+              )}
+
+              {/* sub goals — always rendered, even when locked */}
               <div className="flex-1 space-y-2 p-3">
-                {locked ? (
-                  <p className="flex items-center justify-center gap-1.5 py-4 text-center text-xs text-ink-soft">
-                    <Lock size={12} />
-                    {t(lang, "stageLocked")}
-                  </p>
-                ) : (
-                  <>
-                    {stage.children.length === 0 && (
-                      <p className="py-4 text-center text-xs text-ink-soft">{t(lang, "noSubGoals")}</p>
-                    )}
-                    {(() => {
-                      const visibleCount = visibleCounts[stage.goal.id] ?? CARDS_PAGE_SIZE;
-                      const visibleChildren = stage.children.slice(0, visibleCount);
-                      const remaining = stage.children.length - visibleChildren.length;
-                      return (
-                        <>
-                          {visibleChildren.map((c) => (
-                            <RoadmapCard key={c.goal.id} node={c} onEdit={onEdit} onDelete={deleteGoal} onAddChild={allowNewGoals ? onAddChild : undefined} depth={0} />
-                          ))}
-                          {remaining > 0 && (
-                            <button
-                              onClick={() =>
-                                setVisibleCounts((prev) => ({
-                                  ...prev,
-                                  [stage.goal.id]: visibleCount + CARDS_PAGE_SIZE,
-                                }))
-                              }
-                              className="w-full rounded-lg border border-dashed border-line py-1.5 text-xs font-medium text-ink-soft transition-colors duration-150 hover:border-terrace-300 hover:bg-terrace-500/5 hover:text-terrace-700"
-                            >
-                              {t(lang, "showMore")} ({remaining})
-                            </button>
-                          )}
-                        </>
-                      );
-                    })()}
-                  </>
+                {stage.children.length === 0 && (
+                  <p className="py-4 text-center text-xs text-ink-soft">{t(lang, "noSubGoals")}</p>
                 )}
+                {(() => {
+                  const visibleCount = visibleCounts[stage.goal.id] ?? CARDS_PAGE_SIZE;
+                  const visibleChildren = stage.children.slice(0, visibleCount);
+                  const remaining = stage.children.length - visibleChildren.length;
+                  return (
+                    <>
+                      {visibleChildren.map((c) => (
+                        <RoadmapCard
+                          key={c.goal.id}
+                          node={c}
+                          onEdit={onEdit}
+                          onDelete={deleteGoal}
+                          onAddChild={allowNewGoals ? onAddChild : undefined}
+                          depth={0}
+                          stageLocked={locked}
+                        />
+                      ))}
+                      {remaining > 0 && (
+                        <button
+                          onClick={() =>
+                            setVisibleCounts((prev) => ({
+                              ...prev,
+                              [stage.goal.id]: visibleCount + CARDS_PAGE_SIZE,
+                            }))
+                          }
+                          className="w-full rounded-lg border border-dashed border-line py-1.5 text-xs font-medium text-ink-soft transition-colors duration-150 hover:border-terrace-300 hover:bg-terrace-500/5 hover:text-terrace-700"
+                        >
+                          {t(lang, "showMore")} ({remaining})
+                        </button>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             </div>
           </div>
@@ -213,12 +219,15 @@ function RoadmapCard({
   onDelete,
   onAddChild,
   depth,
+  stageLocked = false,
 }: {
   node: TreeNode;
   onEdit: (g: Goal) => void;
   onDelete?: (id: string) => void;
   onAddChild?: (parentId: string) => void;
   depth: number;
+  /** True when the parent stage is sequentially locked — completion is blocked. */
+  stageLocked?: boolean;
 }) {
   const [showTasks, setShowTasks] = useState(false);
   const { effProgress, members } = useStore();
@@ -268,13 +277,20 @@ function RoadmapCard({
       {children.length > 0 && (
         <div className="mt-2 space-y-2">
           {children.map((c) => (
-            <RoadmapCard key={c.goal.id} node={c} onEdit={onEdit} onDelete={onDelete} onAddChild={onAddChild} depth={depth + 1} />
+            <RoadmapCard key={c.goal.id} node={c} onEdit={onEdit} onDelete={onDelete} onAddChild={onAddChild} depth={depth + 1} stageLocked={stageLocked} />
           ))}
         </div>
       )}
 
       {showTasks && (
-        <TaskDetailPanel goal={goal} onClose={() => setShowTasks(false)} onEdit={onEdit} onDelete={onDelete} onAddChild={onAddChild} />
+        <TaskDetailPanel
+          goal={goal}
+          onClose={() => setShowTasks(false)}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          onAddChild={onAddChild}
+          completionLocked={stageLocked}
+        />
       )}
     </div>
   );
