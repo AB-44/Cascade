@@ -526,7 +526,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const deleteProject = useCallback((id: string) => {
     setProjects((prev) => prev.filter((p) => p.id !== id));
-    setGoals((prevG) => prevG.map((g) => (g.projectId === id ? { ...g, projectId: null } : g)));
+    setGoals((prevG) => prevG.filter((g) => g.projectId !== id));
   }, []);
 
   /**

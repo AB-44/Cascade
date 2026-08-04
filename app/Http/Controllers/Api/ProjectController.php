@@ -307,7 +307,7 @@ class ProjectController extends Controller
     public function forceDelete(Request $request, string $project)
     {
         $user = $request->user();
-        $projectModel = Project::onlyTrashed()->where('user_id', $user->id)->findOrFail($project);
+        $projectModel = Project::withTrashed()->where('user_id', $user->id)->findOrFail($project);
 
         DB::transaction(function () use ($projectModel) {
             Goal::where('project_id', $projectModel->id)->delete();

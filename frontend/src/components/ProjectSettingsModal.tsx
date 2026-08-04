@@ -45,7 +45,7 @@ const STATUS_OPTIONS = [
  * modal) so it sits in the normal navigation flow like Team/Projects do.
  */
 export default function ProjectSettingsModal({ project, onClose, onOpenProject, initialTab = "general" }: Props) {
-  const { updateProject, archiveProjectLocally, goals, members, addMember, lang } = useStore();
+  const { updateProject, archiveProjectLocally, deleteProject, goals, members, addMember, lang } = useStore();
   const [tab, setTab] = useState<Tab>(initialTab);
 
   const [name, setName] = useState(project.name);
@@ -136,7 +136,7 @@ export default function ProjectSettingsModal({ project, onClose, onOpenProject, 
     setDeleting(true);
     try {
       await forceDeleteProject(project.id);
-      archiveProjectLocally(project.id);
+      deleteProject(project.id);
       onClose();
     } catch {
       alert("تعذّر حذف المشروع.");
