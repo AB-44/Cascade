@@ -35,18 +35,74 @@ class SharedProjectController extends Controller
                     ->get()
                     ->map(fn (Goal $g) => $this->goalToJson($g));
 
-                // Everyone the owner can assign goals to in this project,
-                // so any collaborator can filter the roadmap by person —
-                // including people added after they themselves joined.
+                // Only members explicitly added to this project, assigned to goals
+                // in this project, or who are collaborators on this project.
+                $projectMemberIds = is_array($project->member_ids) ? array_filter($project->member_ids) : [];
+
+                $assignedValues = Goal::where('project_id', $project->id)
+                    ->whereNotNull('assigned_to')
+                    ->where('assigned_to', '!=', '')
+                    ->pluck('assigned_to')
+                    ->unique()
+                    ->all();
+
+                $collaboratorUserIds = $project->collaborators()->pluck('users.id')->all();
+
                 $members = TeamMember::where('user_id', $project->user_id)
+                    ->with('linkedUser')
+                    ->where(function ($q) use ($projectMemberIds, $assignedValues, $collaboratorUserIds, $user) {
+                        $q->whereIn('id', $projectMemberIds);
+
+                        if (! empty($assignedValues)) {
+                            $q->orWhereIn('id', $assignedValues)
+                              ->orWhereIn('name', $assignedValues);
+                        }
+
+                        if (! empty($collaboratorUserIds)) {
+                            $q->orWhereIn('linked_user_id', $collaboratorUserIds);
+                        }
+
+                        $q->orWhere('linked_user_id', $user->id)
+                          ->orWhereRaw('LOWER(email) = ?', [strtolower($user->email)]);
+                    })
                     ->orderBy('created_at')
-                    ->get(['id', 'name', 'avatar', 'color'])
-                    ->map(fn (TeamMember $m) => [
-                        'id' => $m->id,
-                        'name' => $m->name,
-                        'avatar' => $m->avatar ?? '',
-                        'color' => $m->color ?? '',
-                    ]);
+                    ->get()
+                    ->map(function (TeamMember $m) use ($project) {
+                        $linkedUser = $m->linkedUser;
+                        $isOwner = strtolower(trim($m->name)) === strtolower(trim($project->user?->name ?? ''));
+
+                        $linkedAvatar = $linkedUser?->avatar ?: ($isOwner ? $project->user?->avatar : null);
+                        $linkedColor = $linkedUser?->avatar_color ?: ($isOwner ? $project->user?->avatar_color : null);
+
+                        $avatar = $m->avatar ?: ($linkedAvatar ?? '');
+                        $color = $m->color ?: ($linkedColor ?? '');
+
+                        return [
+                            'id' => $m->id,
+                            'name' => $m->name,
+                            'avatar' => $avatar,
+                            'color' => $color,
+                            'linkedAvatar' => $linkedAvatar ?? '',
+                            'linkedAvatarColor' => $linkedColor ?? '',
+                        ];
+                    });
+
+                $ownerName = $project->user?->name ?? '';
+                if ($ownerName) {
+                    $hasOwner = $members->contains(fn ($m) => strtolower(trim($m['name'])) === strtolower(trim($ownerName)));
+                    if (! $hasOwner && $project->user) {
+                        $ownerAvatar = $project->user->avatar ?? '';
+                        $ownerColor = $project->user->avatar_color ?? '#6366f1';
+                        $members->prepend([
+                            'id' => 'owner-' . $project->user->id,
+                            'name' => $project->user->name,
+                            'avatar' => $ownerAvatar,
+                            'color' => $ownerColor,
+                            'linkedAvatar' => $ownerAvatar,
+                            'linkedAvatarColor' => $ownerColor,
+                        ]);
+                    }
+                }
 
                 // Which of those member cards is *me* in this owner's roster
                 // (if any) — the client uses this to decide which goals I'm
@@ -63,6 +119,7 @@ class SharedProjectController extends Controller
                     'name' => $project->name,
                     'description' => $project->description,
                     'color' => $project->color,
+                    'deadline' => $project->deadline?->toDateString(),
                     'ownerName' => $project->user?->name ?? '',
                     'goals' => $goals,
                     'members' => $members,

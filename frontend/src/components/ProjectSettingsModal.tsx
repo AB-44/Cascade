@@ -52,6 +52,7 @@ export default function ProjectSettingsModal({ project, onClose, onOpenProject, 
   const [description, setDescription] = useState(project.description);
   const [color, setColor] = useState(project.color);
   const [image, setImage] = useState<string | null>(project.image ?? null);
+  const [deadline, setDeadline] = useState<string | null>(project.deadline ?? null);
   const [isShared, setIsShared] = useState(project.isShared);
   const [lifecycleStatus, setLifecycleStatus] = useState(project.lifecycleStatus);
   const [showOnDashboard, setShowOnDashboard] = useState(project.showOnDashboard);
@@ -107,6 +108,7 @@ export default function ProjectSettingsModal({ project, onClose, onOpenProject, 
       description: description.trim(),
       color,
       image,
+      deadline,
       isShared,
       lifecycleStatus,
       showOnDashboard,
@@ -305,6 +307,29 @@ export default function ProjectSettingsModal({ project, onClose, onOpenProject, 
                 <div>
                   <label className={labelCls}>الوصف</label>
                   <textarea className={inputCls} rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
+                </div>
+
+                <div>
+                  <label className={labelCls}>الموعد النهائي للمشروع</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="date"
+                      className={inputCls}
+                      value={deadline ?? ""}
+                      onChange={(e) => setDeadline(e.target.value || null)}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setDeadline(deadline ? null : new Date().toISOString().split("T")[0])}
+                      className={`shrink-0 rounded-lg border px-3 py-2 text-xs font-semibold transition-colors duration-150 ${
+                        !deadline
+                          ? "border-terrace-500 bg-terrace-500/10 text-terrace-700 shadow-sm"
+                          : "border-line text-ink-soft hover:bg-ink/5"
+                      }`}
+                    >
+                      {!deadline ? "✓ غير محدد" : "غير محدد"}
+                    </button>
+                  </div>
                 </div>
 
                 <div>

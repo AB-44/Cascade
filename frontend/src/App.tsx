@@ -55,6 +55,7 @@ import AssignedToMeView from "./components/AssignedToMeView";
 import InvitationsPanel from "./components/InvitationsPanel";
 import SharedProjectsPanel from "./components/SharedProjectsPanel";
 import SharedProjectRoadmap from "./components/SharedProjectRoadmap";
+import SharedProjectDetailPage from "./components/SharedProjectDetailPage";
 import Sidebar from "./components/Sidebar";
 import { allAssignees, allTags } from "./lib/goals";
 import { exportPDF, exportPNG, printElement } from "./lib/exporter";
@@ -172,14 +173,16 @@ function Shell() {
   // "إعدادات المشروع" quick action → archive, from inside ProjectsPanel),
   // it silently drops out of `projects` and activeProject becomes
   // undefined mid-view. Bounce back to the projects list instead of
-  // leaving the user stranded on a view with nothing to show. (No need to
-  // check isSharedView here — "projectDetail" is only ever entered for a
-  // plain, non-"shared:" project id in the first place.)
+  // leaving the user stranded on a view with nothing to show. Shared
+  // projects are exempt: they never appear in `projects` at all (their
+  // detail page is SharedProjectDetailPage, sourced from
+  // activeSharedProject instead), so activeProject is expectedly
+  // undefined for them and isn't a sign anything went missing.
   useEffect(() => {
-    if (view === "projectDetail" && !activeProject) {
+    if (view === "projectDetail" && !isSharedView && !activeProject) {
       setView("projects");
     }
-  }, [activeProject, view]);
+  }, [activeProject, view, isSharedView]);
 
   const activeSharedProject = isSharedView
     ? sharedProjects.find((p) => `shared:${p.id}` === currentProjectId) ?? null
@@ -769,12 +772,28 @@ function Shell() {
         <div ref={captureRef} className="print-area">
           {isSharedView ? (
             activeSharedProject ? (
-              <SharedProjectRoadmap
-                project={activeSharedProject}
-                onProjectUpdate={(updater) =>
-                  setSharedProjects((prev) => prev.map((p) => (p.id === activeSharedProject.id ? updater(p) : p)))
-                }
-              />
+              view === "projectDetail" ? (
+                <SharedProjectDetailPage
+                  project={activeSharedProject}
+                  onOpenRoadmap={() => setView("roadmap")}
+                  onBack={() => {
+                    setCurrentProjectId("all");
+                    setView("projects");
+                  }}
+                  onLeft={() => {
+                    setSharedProjects((prev) => prev.filter((p) => p.id !== activeSharedProject.id));
+                    setCurrentProjectId("all");
+                    setView("projects");
+                  }}
+                />
+              ) : (
+                <SharedProjectRoadmap
+                  project={activeSharedProject}
+                  onProjectUpdate={(updater) =>
+                    setSharedProjects((prev) => prev.map((p) => (p.id === activeSharedProject.id ? updater(p) : p)))
+                  }
+                />
+              )
             ) : (
               <div className="py-20 text-center text-sm text-ink-soft">جاري التحميل...</div>
             )
@@ -793,7 +812,7 @@ function Shell() {
               onOpenProject={(projectId) => {
                 setCurrentProjectId(projectId);
                 clearFilters();
-                setView(projectId.startsWith("shared:") ? "roadmap" : "projectDetail");
+                setView("projectDetail");
               }}
             />
           ) : view === "projectDetail" && !isSharedView && activeProject ? (

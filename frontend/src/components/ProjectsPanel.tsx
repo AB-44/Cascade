@@ -275,6 +275,7 @@ function ProjectForm({
   const [color, setColor] = useState(
     project?.color || PROJECT_COLORS[Math.floor(Math.random() * PROJECT_COLORS.length)],
   );
+  const [deadline, setDeadline] = useState<string | null>(project?.deadline ?? null);
   const [memberIds, setMemberIds] = useState<string[]>(project?.memberIds || []);
   const [sequentialLock, setSequentialLock] = useState(project?.sequentialLock ?? false);
   const [isShared, setIsShared] = useState(project?.isShared ?? false);
@@ -290,6 +291,7 @@ function ProjectForm({
       description: description.trim(),
       color,
       image: project?.image ?? null,
+      deadline,
       memberIds,
       sequentialLock,
       isShared,
@@ -343,6 +345,29 @@ function ProjectForm({
               onChange={(e) => setDescription(e.target.value)}
               placeholder={t(lang, "projectDescPlaceholder")}
             />
+          </div>
+
+          <div>
+            <label className={labelCls}>الموعد النهائي للمشروع</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                className={inputCls}
+                value={deadline ?? ""}
+                onChange={(e) => setDeadline(e.target.value || null)}
+              />
+              <button
+                type="button"
+                onClick={() => setDeadline(deadline ? null : new Date().toISOString().split("T")[0])}
+                className={`shrink-0 rounded-lg border px-3 py-2 text-xs font-semibold transition-colors duration-150 ${
+                  !deadline
+                    ? "border-terrace-500 bg-terrace-500/10 text-terrace-700 shadow-sm"
+                    : "border-line text-ink-soft hover:bg-ink/5"
+                }`}
+              >
+                {!deadline ? "✓ غير محدد" : "غير محدد"}
+              </button>
+            </div>
           </div>
 
           <div>

@@ -105,6 +105,7 @@ export interface Project {
   description: string;
   color: string;
   image?: string | null; // data URL, like team member avatars
+  deadline?: string | null; // YYYY-MM-DD date or null if unspecified
   memberIds: string[]; // Team members associated with this project
   sequentialLock: boolean; // lock stage N+1 until stage N is Completed
   isShared: boolean; // false = private/solo project; true = shared with others

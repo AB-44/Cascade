@@ -16,12 +16,13 @@ class Project extends Model
     protected $keyType = 'string';
 
     protected $fillable = [
-        'id', 'user_id', 'name', 'description', 'color', 'image', 'member_ids',
+        'id', 'user_id', 'name', 'description', 'color', 'image', 'deadline', 'member_ids',
         'sequential_lock', 'is_shared', 'status', 'show_on_dashboard', 'allow_new_goals',
     ];
 
     protected $casts = [
         'member_ids' => 'array',
+        'deadline' => 'date',
         'sequential_lock' => 'boolean',
         'is_shared' => 'boolean',
         'show_on_dashboard' => 'boolean',

@@ -382,6 +382,8 @@ export interface SharedProjectMember {
   name: string;
   avatar: string;
   color: string;
+  linkedAvatar?: string;
+  linkedAvatarColor?: string;
 }
 
 export interface SharedProject {
@@ -389,6 +391,7 @@ export interface SharedProject {
   name: string;
   description: string;
   color: string;
+  deadline?: string | null;
   ownerName: string;
   goals: SharedProjectGoal[];
   members: SharedProjectMember[];

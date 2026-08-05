@@ -25,6 +25,7 @@ class SyncProjectsRequest extends FormRequest
             'projects.*.archived' => ['sometimes', 'boolean'],
             'projects.*.isShared' => ['sometimes', 'boolean'],
             'projects.*.image' => ['sometimes', 'nullable', 'string'],
+            'projects.*.deadline' => ['sometimes', 'nullable', 'date'],
             'projects.*.lifecycleStatus' => ['sometimes', 'string', 'in:active,paused,completed'],
             'projects.*.showOnDashboard' => ['sometimes', 'boolean'],
             'projects.*.allowNewGoals' => ['sometimes', 'boolean'],

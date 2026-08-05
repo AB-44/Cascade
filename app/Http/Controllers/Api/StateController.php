@@ -59,6 +59,7 @@ class StateController extends Controller
                     'description' => $p->description ?? '',
                     'color' => $p->color ?? '',
                     'image' => $p->image,
+                    'deadline' => $p->deadline?->toDateString(),
                     'memberIds' => $p->member_ids ?? [],
                     'sequentialLock' => (bool) $p->sequential_lock,
                     'isShared' => (bool) $p->is_shared,

@@ -1,9 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   ArrowRight,
-  UserPlus,
-  Settings2,
-  FileDown,
   Users,
   Target as TargetIcon,
   AlertTriangle,
@@ -14,36 +11,23 @@ import {
   PlayCircle,
   CalendarClock,
   Star,
-  Archive,
-  Lock as LockIcon,
   Handshake,
   FileX,
   UserCircle2,
   ChevronLeft,
-  X,
   LogOut,
 } from "lucide-react";
-import type { Project } from "../types";
-import { useStore } from "../store";
-import { deadlineState, isBlocked, priorityColor } from "../lib/goals";
-import {
-  fetchMyProjects,
-  archiveProject as archiveProjectApi,
-  removeProjectCollaborator,
-  leaveProject,
-  type MyProject,
-} from "../lib/api";
+import { leaveProject, isSharedStageLocked, type SharedProject, type SharedProjectGoal } from "../lib/api";
+import { deadlineState, priorityColor } from "../lib/goals";
 import { ProgressBar, ProgressRing } from "./ui";
 import { MemberAvatar } from "./TeamPanel";
 import ConfirmModal from "./ConfirmModal";
 
 interface Props {
-  project: Project;
+  project: SharedProject;
   onOpenRoadmap: () => void;
-  onManageProject: (tab?: "general" | "members") => void;
-  onExportReport: () => void;
   onBack?: () => void;
-  onOpenArchive?: () => void;
+  onLeft?: () => void;
 }
 
 type Health = "onTrack" | "atRisk" | "delayed" | "unknown";
@@ -63,132 +47,54 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "activity", label: "النشاط" },
 ];
 
-export default function ProjectDetailPage({ project, onOpenRoadmap, onManageProject, onExportReport, onBack, onOpenArchive }: Props) {
-  const { goals, members, updateGoal, archiveProjectLocally } = useStore();
-  const [archiving, setArchiving] = useState(false);
-  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
+/**
+ * Same visual shell as ProjectDetailPage, but for a project someone else
+ * owns and invited me into. Deliberately excludes every owner-only action
+ * (manage/settings, archive, invite, remove-member) — this is display +
+ * "leave" only, matching what the backend actually authorizes a
+ * collaborator to do. Sourced entirely from the SharedProject payload,
+ * never the local `goals`/`projects` store.
+ */
+export default function SharedProjectDetailPage({ project, onOpenRoadmap, onBack, onLeft }: Props) {
   const [tab, setTab] = useState<Tab>("overview");
-  const [myProjects, setMyProjects] = useState<MyProject[] | null>(null);
-  const [removingId, setRemovingId] = useState<number | null>(null);
-  const [confirmRemoveId, setConfirmRemoveId] = useState<number | null>(null);
   const [leaving, setLeaving] = useState(false);
   const [confirmLeave, setConfirmLeave] = useState(false);
-
-  // Only used to tell whether the project is shared with real collaborator
-  // accounts (vs. just team-member labels used for assignment) — this is
-  // what the "مشترك/خاص" indicator is grounded in, rather than guessing.
-  useEffect(() => {
-    fetchMyProjects()
-      .then((res) => setMyProjects(res.projects))
-      .catch(() => setMyProjects([]));
-  }, []);
-
-  const apiProject = myProjects?.find((p) => p.id === project.id) ?? null;
-  const isShared = apiProject ? apiProject.memberCount > 1 : project.memberIds.length > 0;
-
-  // The team panel needs to show two different kinds of "people on this
-  // project": real collaborator accounts (owner + anyone who accepted an
-  // invite — from the server, via apiProject.memberAvatars) and local
-  // team-member labels used just for task assignment (project.memberIds).
-  // A collaborator who accepted an invite but was never also added as a
-  // local team-member label previously didn't show up anywhere here —
-  // only local memberIds were rendered — so merge both, preferring the
-  // account entry when a name matches on both sides.
-  const teamRows = useMemo(() => {
-    const rows: { key: string; name: string; avatar: string; color: string; subtitle: string; accountId?: number }[] = [];
-    const seenNames = new Set<string>();
-
-    if (apiProject) {
-      apiProject.memberAvatars.forEach((a, i) => {
-        rows.push({
-          key: `account-${i}`,
-          name: a.name,
-          avatar: a.avatar ?? "",
-          color: a.color ?? "#C9973B",
-          subtitle: i === 0 ? "مالك المشروع" : "متعاون",
-          accountId: i === 0 ? undefined : a.id, // never let the owner row be targeted for removal
-        });
-        seenNames.add(a.name.trim().toLowerCase());
-      });
-    }
-
-    members
-      .filter((m) => project.memberIds.includes(m.id))
-      .forEach((m) => {
-        if (seenNames.has(m.name.trim().toLowerCase())) return;
-        rows.push({
-          key: m.id,
-          name: m.name,
-          avatar: m.linkedAvatar || m.avatar || "",
-          color: m.linkedAvatarColor || m.color,
-          subtitle: m.email || m.role,
-        });
-      });
-
-    return rows;
-  }, [apiProject, members, project.memberIds]);
-
-  const isOwner = apiProject ? apiProject.role === "owner" : true;
-
-  const handleRemove = async (accountId: number) => {
-    setRemovingId(accountId);
-    try {
-      const removedRow = teamRows.find((r) => r.accountId === accountId);
-      await removeProjectCollaborator(project.id, accountId);
-
-      // Server already clears assignedTo on affected goals; mirror that
-      // locally so the goal shows as unassigned right away instead of only
-      // after the next reload — same reconciliation ProjectCollaboratorsSection
-      // does for this same action from the settings page.
-      if (removedRow) {
-        const memberId = members.find((m) => m.name.trim().toLowerCase() === removedRow.name.trim().toLowerCase())?.id;
-        if (memberId) {
-          goals
-            .filter((g) => g.projectId === project.id && g.assignedTo === memberId)
-            .forEach((g) => updateGoal(g.id, { assignedTo: "" }));
-        }
-      }
-
-      setMyProjects((prev) =>
-        prev
-          ? prev.map((p) =>
-              p.id === project.id
-                ? { ...p, memberAvatars: p.memberAvatars.filter((a) => a.id !== accountId), memberCount: p.memberCount - 1 }
-                : p,
-            )
-          : prev,
-      );
-    } finally {
-      setRemovingId(null);
-      setConfirmRemoveId(null);
-    }
-  };
 
   const handleLeave = async () => {
     setLeaving(true);
     try {
       await leaveProject(project.id);
-      onBack?.();
+      onLeft ? onLeft() : onBack?.();
     } finally {
       setLeaving(false);
       setConfirmLeave(false);
     }
   };
 
-  const projectGoals = useMemo(
-    () => goals.filter((g) => g.projectId === project.id && !g.archived),
-    [goals, project.id],
-  );
-
+  const projectGoals = project.goals;
   const totalGoals = projectGoals.length;
   const completedGoals = projectGoals.filter((g) => g.status === "Completed").length;
   const inProgressGoals = projectGoals.filter((g) => g.status === "In Progress").length;
   const progressPct = totalGoals > 0 ? Math.round((completedGoals / totalGoals) * 100) : 0;
 
   const overdue = projectGoals.filter((g) => g.deadline && deadlineState(g.deadline, g.status) === "overdue");
-  const blocked = projectGoals.filter((g) => isBlocked(goals, g) && g.status !== "Completed");
+
+  // "Blocked/waiting" here means sitting inside a sequentially-locked stage
+  // — shared projects don't have the local depends-on graph, only stage
+  // locking (see isSharedStageLocked).
+  const lockedStageIds = useMemo(() => {
+    const topLevel = projectGoals.filter((g) => !g.parentId);
+    return new Set(topLevel.filter((s) => isSharedStageLocked(project, s)).map((s) => s.id));
+  }, [project, projectGoals]);
+  const stageOf = (g: SharedProjectGoal): string | null => {
+    let current: SharedProjectGoal | undefined = g;
+    const byId = new Map(projectGoals.map((x) => [x.id, x]));
+    while (current?.parentId) current = byId.get(current.parentId);
+    return current && current.id !== g.id ? current.id : g.parentId ? null : current?.id ?? null;
+  };
+  const blocked = projectGoals.filter((g) => g.status !== "Completed" && lockedStageIds.has(g.parentId ? (stageOf(g) ?? "") : g.id));
   const waitingGoals = blocked.length;
-  const notStartedGoals = projectGoals.filter((g) => g.status === "Not Started" && !isBlocked(goals, g)).length;
+  const notStartedGoals = projectGoals.filter((g) => g.status === "Not Started" && !blocked.includes(g)).length;
 
   const latestDeadline = useMemo(() => {
     if (project.deadline) {
@@ -199,27 +105,16 @@ export default function ProjectDetailPage({ project, onOpenRoadmap, onManageProj
     return new Date(Math.max(...deadlines.map((d) => new Date(d).getTime())));
   }, [projectGoals, project.deadline]);
 
-  // Health: compare actual progress to how much of the timeline (from the
-  // project's creation to its furthest deadline) has elapsed. No goal has
-  // a deadline at all → nothing to compare against, so it's just "unknown"
-  // rather than guessing.
   const health = useMemo<Health>(() => {
     if (!latestDeadline) return "unknown";
-    const start = new Date(project.createdAt).getTime();
+    const start = 0; // no per-project createdAt on SharedProject — fall back to a pure deadline check
     const now = Date.now();
     const end = latestDeadline.getTime();
-
     if (now > end && progressPct < 100) return "delayed";
-
-    const totalSpan = Math.max(end - start, 1);
-    const idealPct = Math.min(100, Math.max(0, ((now - start) / totalSpan) * 100));
-    if (progressPct + 15 < idealPct) return "atRisk";
+    if (start === 0) return progressPct >= 60 ? "onTrack" : "atRisk";
     return "onTrack";
-  }, [latestDeadline, project.createdAt, progressPct]);
+  }, [latestDeadline, progressPct]);
 
-  // Derived, not stored: there's no per-project priority field, so the
-  // headline priority is simply the highest priority among its active
-  // goals — a real signal instead of a fabricated one.
   const topPriority = useMemo(() => {
     const active = projectGoals.filter((g) => g.status !== "Completed");
     if (active.some((g) => g.priority === "High")) return "High" as const;
@@ -238,24 +133,17 @@ export default function ProjectDetailPage({ project, onOpenRoadmap, onManageProj
   }, [latestDeadline]);
 
   const workload = useMemo(() => {
-    const projectMembers = members.filter((m) => project.memberIds.includes(m.id));
-    return projectMembers
+    return project.members
       .map((m) => {
-        const assigned = projectGoals.filter((g) => g.assignedTo === m.name);
+        const assigned = projectGoals.filter((g) => g.assignedTo === m.id || g.assignedTo === m.name);
         const done = assigned.filter((g) => g.status === "Completed").length;
         return { member: m, total: assigned.length, done };
       })
       .sort((a, b) => b.total - a.total);
-  }, [members, project.memberIds, projectGoals]);
+  }, [project.members, projectGoals]);
 
-  // Lightweight activity feed derived from each goal's own updatedAt —
-  // there's no dedicated audit log yet, so this shows *what last changed
-  // and when*, not a full who-did-what history.
   const recentActivity = useMemo(
-    () =>
-      [...projectGoals]
-        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-        .slice(0, 8),
+    () => [...projectGoals].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()).slice(0, 8),
     [projectGoals],
   );
 
@@ -272,21 +160,6 @@ export default function ProjectDetailPage({ project, onOpenRoadmap, onManageProj
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   let acc = 0;
-
-  const handleArchiveProject = async () => {
-    setShowArchiveConfirm(false);
-    setArchiving(true);
-    try {
-      await archiveProjectApi(project.id);
-      archiveProjectLocally(project.id);
-      if (onOpenArchive) onOpenArchive();
-      else onBack?.();
-    } catch {
-      alert("تعذّرت أرشفة المشروع. حاول مرة ثانية.");
-    } finally {
-      setArchiving(false);
-    }
-  };
 
   return (
     <div>
@@ -309,15 +182,15 @@ export default function ProjectDetailPage({ project, onOpenRoadmap, onManageProj
                 <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: healthMeta.dot }} />
                 {healthMeta.label}
               </span>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-terrace-500/12 px-2.5 py-1 text-xs font-semibold text-terrace-700">
+                <Handshake size={12} /> مشترك
+              </span>
               <h1 className="font-display text-2xl font-semibold text-ink">{project.name}</h1>
             </div>
             {project.description && <p className="mt-1 text-sm text-ink-soft">{project.description}</p>}
             <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-ink-soft">
               <span className="inline-flex items-center gap-1">
-                <UserCircle2 size={13} /> {apiProject?.ownerName || "أنت"}
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <CalendarClock size={13} /> {new Date(project.createdAt).toLocaleDateString()}
+                <UserCircle2 size={13} /> {project.ownerName}
               </span>
               <span className="inline-flex items-center gap-1">
                 <PlayCircle size={13} /> {totalGoals === 0 ? "لم يبدأ بعد" : progressPct === 100 ? "مكتمل" : "قيد التنفيذ"}
@@ -332,36 +205,10 @@ export default function ProjectDetailPage({ project, onOpenRoadmap, onManageProj
             <ArrowRight size={15} className="rtl:rotate-180" />
           </button>
         </div>
-
-        {/* Quick actions */}
-        <div className="mt-4 flex flex-wrap gap-2">
-          <button
-            onClick={() => onManageProject("members")}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-terrace-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition-colors duration-150 hover:bg-terrace-700"
-          >
-            <UserPlus size={15} />
-            دعوة متعاون
-          </button>
-          <button
-            onClick={() => onManageProject("general")}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-2 text-sm font-medium text-ink-soft transition-colors duration-150 hover:bg-ink/5"
-          >
-            <Settings2 size={15} />
-            إعدادات المشروع
-          </button>
-          <button
-            onClick={onExportReport}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-2 text-sm font-medium text-ink-soft transition-colors duration-150 hover:bg-ink/5"
-          >
-            <FileDown size={15} />
-            تصدير تقرير
-          </button>
-        </div>
       </div>
 
       {/* Stat tiles */}
       <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {/* Overall progress */}
         <div className="terrace-card border border-line bg-card p-4">
           <div className="flex items-center gap-3">
             <ProgressRing value={progressPct} size={44} stroke={5} color={project.color || "#1F6E5C"} />
@@ -373,22 +220,17 @@ export default function ProjectDetailPage({ project, onOpenRoadmap, onManageProj
           <p className="mt-2 text-xs text-ink-soft">{completedGoals}/{totalGoals} مهمة</p>
         </div>
 
-        {/* Health */}
         <div className="terrace-card border border-line bg-card p-4">
           <div className="flex items-center gap-2">
             <healthMeta.icon size={18} style={{ color: healthMeta.dot }} />
             <p className="text-sm font-semibold text-ink">{healthMeta.label}</p>
           </div>
           <p className="mt-1 text-[11px] text-ink-soft">{healthMeta.hint}</p>
-          <button
-            onClick={() => setTab("tasks")}
-            className="mt-2 text-xs font-semibold text-terrace-600 hover:underline"
-          >
+          <button onClick={() => setTab("tasks")} className="mt-2 text-xs font-semibold text-terrace-600 hover:underline">
             عرض التفاصيل
           </button>
         </div>
 
-        {/* Deadline */}
         <div className="terrace-card border border-line bg-card p-4">
           <div className="flex items-center gap-2 text-terrace-600">
             <CalendarClock size={17} />
@@ -400,7 +242,6 @@ export default function ProjectDetailPage({ project, onOpenRoadmap, onManageProj
           <p className="mt-1 text-xs text-ink-soft">{latestDeadline ? latestDeadline.toLocaleDateString() : "غير محدد"}</p>
         </div>
 
-        {/* Priority */}
         <div className="terrace-card border border-line bg-card p-4">
           <div className="flex items-center gap-2">
             <Star size={17} style={{ color: topPriority ? priorityColor(topPriority) : "#94a3b8" }} />
@@ -411,122 +252,96 @@ export default function ProjectDetailPage({ project, onOpenRoadmap, onManageProj
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
-        {/* Right-most: project details */}
-        <div className="terrace-card border border-line bg-card p-4">
-          <h2 className="mb-3 font-display text-base font-semibold text-ink">تفاصيل المشروع</h2>
-          <dl className="space-y-2.5 text-sm">
-            <div className="flex items-center justify-between gap-2">
-              <dt className="text-ink-soft">تاريخ الإنشاء</dt>
-              <dd className="font-medium text-ink">{new Date(project.createdAt).toLocaleDateString()}</dd>
-            </div>
-            <div className="flex items-center justify-between gap-2">
-              <dt className="text-ink-soft">الموعد النهائي</dt>
-              <dd className="font-medium text-ink">{latestDeadline ? latestDeadline.toLocaleDateString() : "غير محدد"}</dd>
-            </div>
-            <div className="flex items-center justify-between gap-2">
-              <dt className="text-ink-soft">نوع المشروع</dt>
-              <dd className="inline-flex items-center gap-1.5 font-medium text-ink">
-                {isShared ? (
-                  <>
-                    <Handshake size={13} className="text-terrace-600" /> مشروع مشترك
-                  </>
-                ) : (
-                  <>
-                    <LockIcon size={13} className="text-ink-soft" /> مشروع خاص
-                  </>
-                )}
-              </dd>
-            </div>
-            <div>
-              <div className="mb-1 flex items-center justify-between gap-2">
-                <dt className="text-ink-soft">التقدم العام</dt>
-                <dd className="font-mono-num font-medium text-ink">{progressPct}%</dd>
+        {/* Project details */}
+        <div className="terrace-card flex flex-col justify-between border border-line bg-card p-4">
+          <div>
+            <h2 className="mb-3 font-display text-base font-semibold text-ink">تفاصيل المشروع</h2>
+            <dl className="space-y-2.5 text-sm">
+              <div className="flex items-center justify-between gap-2">
+                <dt className="text-ink-soft">صاحب المشروع</dt>
+                <dd className="font-medium text-ink">{project.ownerName}</dd>
               </div>
-              <ProgressBar value={progressPct} color={project.color} />
-            </div>
-            {project.description && (
-              <div className="border-t border-line pt-2.5">
-                <dt className="mb-1 text-ink-soft">الوصف</dt>
-                <dd className="text-ink">{project.description}</dd>
+              <div className="flex items-center justify-between gap-2">
+                <dt className="text-ink-soft">الموعد النهائي</dt>
+                <dd className="font-medium text-ink">{latestDeadline ? latestDeadline.toLocaleDateString() : "غير محدد"}</dd>
               </div>
-            )}
-          </dl>
+              <div className="flex items-center justify-between gap-2">
+                <dt className="text-ink-soft">نوع المشروع</dt>
+                <dd className="inline-flex items-center gap-1.5 font-medium text-ink">
+                  <Handshake size={13} className="text-terrace-600" /> مشروع مشترك
+                </dd>
+              </div>
+              <div>
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <dt className="text-ink-soft">التقدم العام</dt>
+                  <dd className="font-mono-num font-medium text-ink">{progressPct}%</dd>
+                </div>
+                <ProgressBar value={progressPct} color={project.color} />
+              </div>
+              {project.description && (
+                <div className="border-t border-line pt-2.5">
+                  <dt className="mb-1 text-ink-soft">الوصف</dt>
+                  <dd className="text-ink">{project.description}</dd>
+                </div>
+              )}
+            </dl>
+          </div>
 
           <button
-            onClick={() => setShowArchiveConfirm(true)}
-            disabled={archiving}
+            onClick={() => setConfirmLeave(true)}
+            disabled={leaving}
             className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-clay/30 px-3 py-2 text-sm font-semibold text-clay transition-colors duration-150 hover:bg-clay/10 disabled:opacity-60"
           >
-            <Archive size={15} />
-            {archiving ? "جارٍ الأرشفة..." : "أرشفة المشروع"}
+            <LogOut size={15} />
+            {leaving ? "جارٍ الخروج..." : "الخروج من المشروع"}
           </button>
         </div>
 
-        {/* Middle: team */}
+        {/* Team */}
         <div className="terrace-card border border-line bg-card p-4">
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <h2 className="font-display text-base font-semibold text-ink">فريق المشروع</h2>
-            <div className="flex items-center gap-1.5">
-              {!isOwner && (
-                <button
-                  onClick={() => setConfirmLeave(true)}
-                  className="inline-flex items-center gap-1 rounded-lg border border-line px-2.5 py-1.5 text-xs font-medium text-clay transition-colors duration-150 hover:bg-clay/10"
-                >
-                  <LogOut size={13} />
-                  الخروج من المشروع
-                </button>
-              )}
-              <button
-                onClick={() => onManageProject("members")}
-                className="inline-flex items-center gap-1 rounded-lg border border-line px-2.5 py-1.5 text-xs font-medium text-ink-soft transition-colors duration-150 hover:bg-ink/5"
-              >
-                <UserPlus size={13} />
-                أعضاء
-              </button>
-            </div>
-          </div>
-          {teamRows.length === 0 ? (
+          <h2 className="mb-3 font-display text-base font-semibold text-ink">فريق المشروع</h2>
+          {project.members.length === 0 ? (
             <p className="py-4 text-center text-sm text-ink-soft">ما فيه أعضاء مرتبطون بهذا المشروع بعد.</p>
           ) : (
             <div className="space-y-1">
-              {teamRows.map((row) => (
-                <div key={row.key} className="group flex items-center gap-2.5 rounded-lg px-1.5 py-2 hover:bg-ink/5">
-                  <div className="relative shrink-0">
-                    <MemberAvatar member={{ name: row.name, avatar: row.avatar, color: row.color }} size={32} />
-                    <span className="absolute -bottom-0.5 -end-0.5 h-2.5 w-2.5 rounded-full border-2 border-card bg-green-500" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-ink">{row.name}</p>
-                    <p className="truncate text-xs text-ink-soft">{row.subtitle}</p>
-                  </div>
-                  <span className="shrink-0 rounded-full bg-basin-2 px-2 py-0.5 text-[10px] font-medium text-ink-soft">
-                    {row.subtitle === "مالك المشروع" ? "مالك" : "عضو"}
-                  </span>
-                  {isOwner && row.accountId !== undefined && (
-                    <button
-                      onClick={() => setConfirmRemoveId(row.accountId!)}
-                      disabled={removingId === row.accountId}
-                      title="حذف من المشروع"
-                      className="shrink-0 rounded-lg p-1.5 text-ink-soft/0 transition-colors duration-150 hover:bg-clay/10 hover:text-clay group-hover:text-ink-soft/50 disabled:opacity-40"
-                    >
-                      <X size={14} />
-                    </button>
-                  )}
-                </div>
-              ))}
+              {[...project.members]
+                .sort((a, b) => {
+                  const aIsOwner = a.name.trim().toLowerCase() === project.ownerName.trim().toLowerCase();
+                  const bIsOwner = b.name.trim().toLowerCase() === project.ownerName.trim().toLowerCase();
+                  if (aIsOwner) return -1;
+                  if (bIsOwner) return 1;
+                  return 0;
+                })
+                .map((m) => {
+                  const isOwner = m.name.trim().toLowerCase() === project.ownerName.trim().toLowerCase();
+                  const isMe = m.id === project.myMemberId;
+                  const roleText = isOwner ? (isMe ? "مالك المشروع (أنت)" : "مالك المشروع") : isMe ? "أنت" : "عضو";
+
+                  return (
+                    <div key={m.id} className="flex items-center gap-2.5 rounded-lg px-1.5 py-2">
+                      <div className="relative shrink-0">
+                        <MemberAvatar member={m} size={32} />
+                        <span className="absolute -bottom-0.5 -end-0.5 h-2.5 w-2.5 rounded-full border-2 border-card bg-green-500" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-ink">{m.name}</p>
+                        <p className="truncate text-xs text-ink-soft">{roleText}</p>
+                      </div>
+                    </div>
+                  );
+                })}
             </div>
           )}
         </div>
 
-        {/* Left-most: tabs */}
+        {/* Tabs */}
         <div>
           <div className="mb-3 flex rounded-xl border border-line bg-card p-1">
             {TABS.map((tb) => (
               <button
                 key={tb.id}
                 onClick={() => setTab(tb.id)}
-                className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium transition ${tab === tb.id ? "bg-terrace-600 text-white shadow-sm" : "text-ink-soft hover:bg-ink/5"
-                  }`}
+                className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium transition ${tab === tb.id ? "bg-terrace-600 text-white shadow-sm" : "text-ink-soft hover:bg-ink/5"}`}
               >
                 {tb.label}
               </button>
@@ -688,7 +503,6 @@ export default function ProjectDetailPage({ project, onOpenRoadmap, onManageProj
                           <Circle size={14} className="shrink-0 text-ink-soft/40" />
                         )}
                         <span className="truncate">{g.name}</span>
-                        {g.assignedTo && <span className="shrink-0 text-xs text-ink-soft">· {g.assignedTo}</span>}
                       </span>
                       <span className="shrink-0 text-xs text-ink-soft">
                         {new Date(g.updatedAt).toLocaleDateString("ar-EG", { month: "short", day: "numeric" })}
@@ -701,32 +515,6 @@ export default function ProjectDetailPage({ project, onOpenRoadmap, onManageProj
           )}
         </div>
       </div>
-
-      {showArchiveConfirm && (
-        <ConfirmModal
-          icon={Archive}
-          title="أرشفة المشروع"
-          message={`هل أنت متأكد من أرشفة مشروع "${project.name}"؟ جميع المهام التابعة له لن تكون متاحة من الأرشيف.`}
-          confirmLabel="أرشفة المشروع"
-          cancelLabel="إلغاء"
-          footnote="يمكنك استرجاع المشروع وأهدافه بالكامل من صفحة الأرشيف في أي وقت."
-          onConfirm={handleArchiveProject}
-          onCancel={() => setShowArchiveConfirm(false)}
-        />
-      )}
-
-      {confirmRemoveId !== null && (
-        <ConfirmModal
-          icon={X}
-          destructive
-          title="حذف عضو من المشروع"
-          message={`حذف "${teamRows.find((r) => r.accountId === confirmRemoveId)?.name}" من هذا المشروع؟ راح يفقد الوصول له فورًا، وأي مهام مسندة له تصير بدون تعيين.`}
-          confirmLabel="حذف"
-          cancelLabel="إلغاء"
-          onConfirm={() => handleRemove(confirmRemoveId)}
-          onCancel={() => setConfirmRemoveId(null)}
-        />
-      )}
 
       {confirmLeave && (
         <ConfirmModal

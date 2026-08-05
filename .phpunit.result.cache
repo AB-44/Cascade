@@ -1,0 +1,1 @@
+{"version":2,"defects":[],"times":{"Tests\\Unit\\ExampleTest::test_that_true_is_true":0,"Tests\\Feature\\ExampleTest::test_the_application_returns_a_successful_response":0.109,"Tests\\Feature\\SharedProjectMemberFilterTest::test_shared_project_returns_only_members_associated_with_the_project":0.093}}
