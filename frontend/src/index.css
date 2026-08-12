@@ -293,6 +293,88 @@ input[type="range"] {
   accent-color: var(--color-terrace-600);
 }
 
+/* ---- pagination tabs ----------------------------------------------------
+   Page-number buttons for list pagination. The active page's fill slides
+   in from behind the tab and a small dot pops beneath it, both with a
+   soft overshoot so it reads as a bouncy, physical selection rather than
+   an instant color swap. ------------------------------------------------- */
+.pg-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--color-line);
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.75rem;
+  color: var(--color-ink-soft);
+  background-color: transparent;
+  transition: all 0.42s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.pg-tab::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+  background-color: var(--color-terrace-600);
+  z-index: -1;
+  opacity: 0;
+  scale: 0;
+  transition: all 0.42s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.pg-tab::after {
+  content: "";
+  position: absolute;
+  bottom: -16px;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background-color: var(--color-terrace-500);
+  transform: translateX(-50%);
+  scale: 0;
+  opacity: 0;
+  z-index: -1;
+  transition: all 0.42s 0.12s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.pg-tab:hover {
+  border-color: var(--color-terrace-500);
+  color: var(--color-terrace-500);
+}
+
+.pg-tab[data-active="true"] {
+  border-color: transparent;
+  color: #ffffff;
+  scale: 1.1;
+}
+
+.pg-tab[data-active="true"]::before {
+  opacity: 1;
+  scale: 1;
+}
+
+.pg-tab[data-active="true"]::after {
+  bottom: -10px;
+  opacity: 1;
+  scale: 1;
+  box-shadow:
+    0 4px 8px color-mix(in srgb, var(--color-terrace-500) 25%, transparent),
+    0 14px 14px color-mix(in srgb, var(--color-terrace-500) 12%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pg-tab,
+  .pg-tab::before,
+  .pg-tab::after {
+    transition: none;
+  }
+}
+
 /* topbar icon hover-reveal label */
 .topbar-nav-item {
   overflow: hidden;

@@ -73,7 +73,15 @@ function Breadcrumb({ goal }: { goal: AssignedGoal }) {
   );
 }
 
-export default function AssignedToMeView({ onGotoDeadlines }: { onGotoDeadlines: () => void }) {
+export default function AssignedToMeView({
+  onGotoDeadlines,
+  onGoto,
+}: {
+  onGotoDeadlines: () => void;
+  /** Jumps to the goal's card in the roadmap and highlights it — same
+   *  behavior as clicking a notification. */
+  onGoto: (id: string) => void;
+}) {
   const { goals: treeGoals, replaceAll: replaceTreeGoals } = useStore();
   const [goals, setGoals] = useState<AssignedGoal[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -82,12 +90,12 @@ export default function AssignedToMeView({ onGotoDeadlines }: { onGotoDeadlines:
 
   const [search, setSearch] = useState("");
   const [sourceTab, setSourceTab] = useState<"all" | "personal" | "assigned">("all");
-  const [statusTab, setStatusTab] = useState<"all" | "in_progress" | "waiting" | "completed">("all");
+  const [statusTab, setStatusTab] = useState<"all" | "in_progress" | "waiting" | "completed">("in_progress");
   const [priorityFilter, setPriorityFilter] = useState<"all" | Priority>("all");
   const [sortBy, setSortBy] = useState<"deadline" | "priority" | "name">("deadline");
   const [personalPage, setPersonalPage] = useState(1);
   const [assignedPage, setAssignedPage] = useState(1);
-  const PAGE_SIZE = 10;
+  const PAGE_SIZE = 6;
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const d = new Date();
     d.setDate(1);
@@ -173,8 +181,8 @@ export default function AssignedToMeView({ onGotoDeadlines }: { onGotoDeadlines:
   // ---- stats (all computed from real data — nothing fabricated) ----
   const total = goals?.length ?? 0;
   const completed = goals?.filter((g) => g.status === "Completed").length ?? 0;
-  const inProgress = goals?.filter((g) => g.status === "In Progress" && !g.locked).length ?? 0;
-  const waiting = goals?.filter((g) => g.locked).length ?? 0;
+  const inProgress = goals?.filter((g) => g.status === "In Progress").length ?? 0;
+  const waiting = goals?.filter((g) => g.progress === 0).length ?? 0;
   const overallProgress = total > 0 ? Math.round((goals ?? []).reduce((s, g) => s + g.progress, 0) / total) : 0;
   const dueToday =
     goals?.filter((g) => g.status === "In Progress" && g.deadline && isSameDay(new Date(g.deadline), new Date()))
@@ -188,8 +196,8 @@ export default function AssignedToMeView({ onGotoDeadlines }: { onGotoDeadlines:
   const assignedCompleted = assignedGoals.filter((g) => g.status === "Completed").length;
 
   const applyFilters = (list: AssignedGoal[]) => {
-    if (statusTab === "in_progress") list = list.filter((g) => g.status === "In Progress" && !g.locked);
-    else if (statusTab === "waiting") list = list.filter((g) => g.locked);
+    if (statusTab === "in_progress") list = list.filter((g) => g.status === "In Progress");
+    else if (statusTab === "waiting") list = list.filter((g) => g.progress === 0);
     else if (statusTab === "completed") list = list.filter((g) => g.status === "Completed");
     if (priorityFilter !== "all") list = list.filter((g) => g.priority === priorityFilter);
     if (search.trim()) {
@@ -217,6 +225,17 @@ export default function AssignedToMeView({ onGotoDeadlines }: { onGotoDeadlines:
 
   const personalPageCount = Math.max(1, Math.ceil(filteredPersonal.length / PAGE_SIZE));
   const assignedPageCount = Math.max(1, Math.ceil(filteredAssigned.length / PAGE_SIZE));
+
+  // If a deletion (or any other change) shrinks the list enough that the
+  // current page no longer exists, fall back to the new last page instead
+  // of showing an empty page.
+  useEffect(() => {
+    setPersonalPage((p) => Math.min(p, personalPageCount));
+  }, [personalPageCount]);
+  useEffect(() => {
+    setAssignedPage((p) => Math.min(p, assignedPageCount));
+  }, [assignedPageCount]);
+
   const personalPageItems = filteredPersonal.slice((personalPage - 1) * PAGE_SIZE, personalPage * PAGE_SIZE);
   const assignedPageItems = filteredAssigned.slice((assignedPage - 1) * PAGE_SIZE, assignedPage * PAGE_SIZE);
 
@@ -427,7 +446,7 @@ export default function AssignedToMeView({ onGotoDeadlines }: { onGotoDeadlines:
                       page={personalPage}
                       pageCount={personalPageCount}
                       onPageChange={setPersonalPage}
-                      onOpen={setDetailGoal}
+                      onOpen={(g) => onGoto(g.id)}
                       onDelete={handleDelete}
                       emptyLabel="ما فيه مهام خاصة تطابق البحث/الفلتر."
                     />
@@ -441,7 +460,7 @@ export default function AssignedToMeView({ onGotoDeadlines }: { onGotoDeadlines:
                       page={assignedPage}
                       pageCount={assignedPageCount}
                       onPageChange={setAssignedPage}
-                      onOpen={setDetailGoal}
+                      onOpen={(g) => onGoto(g.id)}
                       emptyLabel="ما فيه مهام مسندة تطابق البحث/الفلتر."
                     />
                   )}
@@ -796,7 +815,7 @@ function Pagination({
   const pages = Array.from({ length: pageCount }, (_, i) => i + 1);
 
   return (
-    <div className="mt-3 flex items-center justify-center gap-1">
+    <div className="mt-4 flex items-center justify-center gap-1.5">
       <button
         onClick={() => onPageChange(Math.max(1, page - 1))}
         disabled={page === 1}
@@ -809,9 +828,8 @@ function Pagination({
         <button
           key={p}
           onClick={() => onPageChange(p)}
-          className={`flex h-7 min-w-7 items-center justify-center rounded-md px-2 font-mono-num text-xs font-medium transition-colors duration-150 ${
-            p === page ? "bg-terrace-600 text-white" : "text-ink-soft hover:bg-terrace-500/10"
-          }`}
+          data-active={p === page}
+          className="pg-tab font-mono-num"
         >
           {p}
         </button>

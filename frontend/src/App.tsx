@@ -800,7 +800,7 @@ function Shell() {
           ) : view === "dashboard" ? (
             <Dashboard roadmapOwnerId={roadmapOwnerId} currentProjectId={currentProjectId} />
           ) : view === "assigned" ? (
-            <AssignedToMeView onGotoDeadlines={() => setView("deadlines")} />
+            <AssignedToMeView onGotoDeadlines={() => setView("deadlines")} onGoto={gotoGoal} />
           ) : view === "projects" ? (
             <ProjectsPage
               refreshKey={projectsRefreshKey}
