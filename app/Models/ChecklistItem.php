@@ -13,6 +13,7 @@ class ChecklistItem extends Model
     protected $fillable = [
         'id', 'goal_id', 'text', 'notes', 'done', 'images', 'order_index',
         'started_at', 'accumulated_ms', 'timer_paused',
+        'completion_note', 'completion_images',
     ];
 
     protected $casts = [
@@ -20,6 +21,7 @@ class ChecklistItem extends Model
         'images' => 'array',
         'timer_paused' => 'boolean',
         'started_at' => 'datetime',
+        'completion_images' => 'array',
     ];
 
     public function goal(): BelongsTo

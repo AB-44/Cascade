@@ -112,6 +112,8 @@ class StateController extends Controller
                 'notes' => $item->notes ?? '',
                 'done' => $item->done,
                 'images' => $item->images ?? [],
+                'completionNote' => $item->completion_note ?? '',
+                'completionImages' => $item->completion_images ?? [],
                 'startedAt' => $item->started_at?->toIso8601String(),
                 'accumulatedMs' => (int) $item->accumulated_ms,
                 'timerPaused' => $item->timer_paused,

@@ -22,6 +22,8 @@ import {
   StickyNote,
   Pencil,
   CheckCircle2,
+  Sparkles,
+  Upload,
 } from "lucide-react";
 import type { Goal, ChecklistItem, TimeSession } from "../types";
 import { useStore } from "../store";
@@ -95,6 +97,7 @@ export default function TaskDetailPanel({ goal, onClose, onEdit, onDelete, onAdd
   const member = members.find((m) => m.name === goal.assignedTo);
   const [newItem, setNewItem] = useState("");
   const [preview, setPreview] = useState<{ images: string[]; index: number } | null>(null);
+  const [completionEditorItemId, setCompletionEditorItemId] = useState<string | null>(null);
   const progress = effProgress(goal);
   const doneItems = goal.checklist.filter((c) => c.done).length;
   const totalItems = goal.checklist.length;
@@ -237,6 +240,50 @@ export default function TaskDetailPanel({ goal, onClose, onEdit, onDelete, onAdd
 
   const updateItemNotes = (itemId: string, notes: string) => {
     patchList(goal.checklist.map((c) => (c.id === itemId ? { ...c, notes } : c)));
+  };
+
+  const updateItemCompletionNote = (itemId: string, completionNote: string) => {
+    patchList(goal.checklist.map((c) => (c.id === itemId ? { ...c, completionNote } : c)));
+  };
+
+  const addCompletionImages = async (itemId: string, files: FileList) => {
+    const item = goal.checklist.find((c) => c.id === itemId);
+    const existing = item?.completionImages ?? [];
+    const room = MAX_IMAGES_PER_ITEM - existing.length;
+    if (room <= 0) {
+      alert(t(lang, "maxImagesReached"));
+      return;
+    }
+    const toProcess = Array.from(files).slice(0, room);
+    const added: string[] = [];
+    for (const file of toProcess) {
+      if (file.size > 5 * 1024 * 1024) {
+        alert(t(lang, "imageTooLarge"));
+        continue;
+      }
+      try {
+        added.push(await fileToResizedDataUrl(file));
+      } catch (e) {
+        console.error(e);
+        alert(t(lang, "imageAddFailed"));
+      }
+    }
+    if (added.length === 0) return;
+    patchList(
+      goal.checklist.map((c) =>
+        c.id === itemId ? { ...c, completionImages: [...existing, ...added] } : c,
+      ),
+    );
+  };
+
+  const removeCompletionImage = (itemId: string, index: number) => {
+    patchList(
+      goal.checklist.map((c) => {
+        if (c.id !== itemId) return c;
+        const existing = c.completionImages ?? [];
+        return { ...c, completionImages: existing.filter((_, i) => i !== index) };
+      }),
+    );
   };
 
   const addImagesToItem = async (itemId: string, files: FileList) => {
@@ -646,6 +693,7 @@ export default function TaskDetailPanel({ goal, onClose, onEdit, onDelete, onAdd
                     onNotesChange={(notes) => updateItemNotes(item.id, notes)}
                     onAddImages={(files) => addImagesToItem(item.id, files)}
                     onRemoveImage={(idx) => removeImage(item.id, idx)}
+                    onOpenCompletionEditor={() => setCompletionEditorItemId(item.id)}
                     onDelete={() => removeItem(item.id)}
                     onOpenPreview={(images, index) => setPreview({ images, index })}
                     onReorder={reorderChecklist}
@@ -683,6 +731,22 @@ export default function TaskDetailPanel({ goal, onClose, onEdit, onDelete, onAdd
           </div>
         </div>
       </div>
+
+      {/* "My way of doing it" completion-method modal */}
+      {completionEditorItemId && (() => {
+        const item = goal.checklist.find((c) => c.id === completionEditorItemId);
+        if (!item) return null;
+        return (
+          <CompletionMethodModal
+            item={item}
+            lang={lang}
+            onChangeNote={(note) => updateItemCompletionNote(item.id, note)}
+            onAddImages={(files) => addCompletionImages(item.id, files)}
+            onRemoveImage={(idx) => removeCompletionImage(item.id, idx)}
+            onClose={() => setCompletionEditorItemId(null)}
+          />
+        );
+      })()}
 
       {/* Image preview lightbox */}
       {preview && (
@@ -848,6 +912,7 @@ function TaskItem({
   onNotesChange,
   onAddImages,
   onRemoveImage,
+  onOpenCompletionEditor,
   onDelete,
   onOpenPreview,
   onReorder,
@@ -864,6 +929,7 @@ function TaskItem({
   onNotesChange: (notes: string) => void;
   onAddImages: (files: FileList) => void;
   onRemoveImage: (index: number) => void;
+  onOpenCompletionEditor: () => void;
   onDelete: () => void;
   onOpenPreview: (images: string[], index: number) => void;
   onReorder: (draggedId: string, beforeId: string | null) => void;
@@ -943,6 +1009,17 @@ function TaskItem({
             }`}
           >
             <StickyNote size={15} />
+          </button>
+          <button
+            onClick={onOpenCompletionEditor}
+            title={t(lang, "completionMethod")}
+            className={`rounded-md p-1.5 transition-colors duration-150 hover:bg-terrace-500/10 hover:text-terrace-600 ${
+              item.completionNote || (item.completionImages?.length ?? 0) > 0
+                ? "text-terrace-600"
+                : "text-ink-soft"
+            }`}
+          >
+            <Sparkles size={15} />
           </button>
           {canAddMore && (
             <button
@@ -1097,6 +1174,155 @@ function ListEndDropZone({ onDrop }: { onDrop: (draggedId: string) => void }) {
       }}
       className={`h-3 rounded-full transition-colors duration-150 ${dragOver ? "bg-terrace-400/30 ring-2 ring-terrace-400" : ""}`}
     />
+  );
+}
+
+function CompletionMethodModal({
+  item,
+  lang,
+  onChangeNote,
+  onAddImages,
+  onRemoveImage,
+  onClose,
+}: {
+  item: ChecklistItem;
+  lang: "en" | "ar";
+  onChangeNote: (note: string) => void;
+  onAddImages: (files: FileList) => void;
+  onRemoveImage: (index: number) => void;
+  onClose: () => void;
+}) {
+  const [draft, setDraft] = useState(item.completionNote ?? "");
+  const [dragOver, setDragOver] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const images = item.completionImages ?? [];
+  const canAddMore = images.length < MAX_IMAGES_PER_ITEM;
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") handleClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleClose = () => {
+    if (draft !== (item.completionNote ?? "")) onChangeNote(draft);
+    onClose();
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-ink/40 p-4 backdrop-blur-[2px] animate-fade-in"
+      onMouseDown={(e) => e.target === e.currentTarget && handleClose()}
+    >
+      <div className="terrace-card relative flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden bg-card shadow-2xl animate-scale-in">
+        <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-4">
+          <h2 className="flex items-center gap-2 font-display text-base font-semibold text-ink">
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-terrace-500/12 text-terrace-600">
+              <Sparkles size={16} />
+            </span>
+            {t(lang, "completionMethodModalTitle")}
+          </h2>
+          <button
+            onClick={handleClose}
+            className="rounded-lg bg-basin-2 p-2 text-ink-soft transition-colors duration-150 hover:bg-ink/10 hover:text-ink"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-5 py-4">
+          <p className="text-xs text-ink-soft">{t(lang, "completionMethodModalSubtitle")}</p>
+          <textarea
+            autoFocus
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder={t(lang, "completionMethodPlaceholder")}
+            rows={6}
+            className="mt-2 w-full resize-y rounded-lg border border-line bg-basin-2/40 px-3 py-2.5 text-sm text-ink outline-none transition-colors duration-150 placeholder:text-ink-soft/50 focus:border-terrace-400"
+          />
+
+          <div className="mt-5">
+            <p className="text-xs font-semibold text-ink">{t(lang, "completionMethodImagesLabel")}</p>
+            <p className="mt-0.5 text-xs text-ink-soft">{t(lang, "completionMethodImagesHint")}</p>
+
+            <div className="mt-2 flex flex-wrap gap-2">
+              {images.map((src, i) => (
+                <div key={i} className="group/image relative">
+                  <img
+                    src={src}
+                    alt=""
+                    className="h-16 w-16 rounded-lg border border-line object-cover"
+                  />
+                  <button
+                    onClick={() => onRemoveImage(i)}
+                    className="absolute -end-1 -top-1 rounded-full bg-ink/60 p-0.5 text-white opacity-0 transition-opacity duration-150 group-hover/image:opacity-100 hover:bg-clay"
+                    title={t(lang, "removeImage")}
+                  >
+                    <X size={11} />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {canAddMore && (
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOver(true);
+                }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragOver(false);
+                  if (e.dataTransfer.files?.length) onAddImages(e.dataTransfer.files);
+                }}
+                className={`mt-2 flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed px-4 py-5 text-center transition-colors duration-150 ${
+                  dragOver ? "border-terrace-500 bg-terrace-500/5" : "border-line"
+                }`}
+              >
+                <Upload size={18} className="text-ink-soft/50" />
+                <p className="text-xs text-ink-soft">{t(lang, "dragDropOr")}</p>
+                <button
+                  onClick={() => fileRef.current?.click()}
+                  className="rounded-lg border border-line px-3 py-1.5 text-xs font-semibold text-terrace-600 transition-colors duration-150 hover:bg-terrace-500/10"
+                >
+                  {t(lang, "chooseImages")}
+                </button>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files.length > 0) onAddImages(e.target.files);
+                    e.target.value = "";
+                  }}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex gap-2.5 border-t border-line px-5 py-4">
+          <button
+            onClick={handleClose}
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-terrace-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:bg-terrace-700 active:scale-[0.98]"
+          >
+            {t(lang, "saveDescription")}
+          </button>
+          <button
+            onClick={onClose}
+            className="flex-1 rounded-lg border border-line px-4 py-2.5 text-sm font-semibold text-ink transition-colors duration-150 hover:bg-ink/5 active:scale-[0.98]"
+          >
+            {t(lang, "cancel")}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
