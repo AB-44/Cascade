@@ -15,6 +15,7 @@ export interface ChecklistItem {
   image?: string | null; // data URL (legacy, kept for backward compatibility)
   images?: string[]; // data URLs - multiple images per task item
   notes?: string; // free-form notes, typically jotted down once the step is done
+  notesImages?: string[]; // data URLs attached to the free-form note
   completionNote?: string; // "my way of doing it" — a writeup of how the step was actually completed
   completionImages?: string[]; // data URLs attached to the completion writeup
   startedAt?: string | null; // ISO datetime - focus timer running segment start
