@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Pencil, Plus, Trash2, User, ListTodo, ChevronLeft, Lock } from "lucide-react";
+import { Pencil, Plus, Trash2, User, ListTodo, ChevronLeft, Lock, StickyNote } from "lucide-react";
 import type { Goal } from "../types";
 import { useStore, useTree } from "../store";
 import { priorityColor, isStageLocked } from "../lib/goals";
@@ -11,6 +11,16 @@ import TaskDetailPanel from "./TaskDetailPanel";
 import { t, tFormat } from "../lib/i18n";
 import { MemberAvatar } from "./TeamPanel";
 import ConfirmModal from "./ConfirmModal";
+
+function goalNotesCount(goal: Goal): number {
+  return goal.checklist.reduce((sum, c) => {
+    if (c.notesList && c.notesList.length > 0) {
+      return sum + c.notesList.filter((n) => n.title.trim() || n.body.trim() || n.images.length > 0).length;
+    }
+    if (c.notes || (c.notesImages?.length ?? 0) > 0) return sum + 1;
+    return sum;
+  }, 0);
+}
 
 interface Props {
   onEdit: (g: Goal) => void;
@@ -230,10 +240,11 @@ function RoadmapCard({
   stageLocked?: boolean;
 }) {
   const [showTasks, setShowTasks] = useState(false);
-  const { effProgress, members } = useStore();
+  const { effProgress, members, lang } = useStore();
   const { goal, children } = node;
   const progress = effProgress(goal);
   const member = members.find((m) => m.name === goal.assignedTo);
+  const notesCount = goalNotesCount(goal);
   return (
     <div style={{ marginLeft: depth * 8 }} data-goal-id={goal.id}>
       <div
@@ -267,9 +278,20 @@ function RoadmapCard({
             </span>
           )}
           {goal.checklist.length > 0 && (
-            <span className="inline-flex items-center gap-1 rounded bg-basin-2 px-2 py-0.5 text-[10px] font-medium text-ink-soft">
-              <ListTodo size={11} />
-              {goal.checklist.filter((c) => c.done).length}/{goal.checklist.length}
+            <span className="inline-flex items-center gap-1.5">
+              {notesCount > 0 && (
+                <span
+                  className="inline-flex items-center gap-1 rounded bg-basin-2 px-2 py-0.5 text-[10px] font-medium text-terrace-600"
+                  title={t(lang, "notesListTitle")}
+                >
+                  <StickyNote size={11} />
+                  {notesCount}
+                </span>
+              )}
+              <span className="inline-flex items-center gap-1 rounded bg-basin-2 px-2 py-0.5 text-[10px] font-medium text-ink-soft">
+                <ListTodo size={11} />
+                {goal.checklist.filter((c) => c.done).length}/{goal.checklist.length}
+              </span>
             </span>
           )}
         </div>
