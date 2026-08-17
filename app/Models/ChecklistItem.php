@@ -11,7 +11,7 @@ class ChecklistItem extends Model
     protected $keyType = 'string';
 
     protected $fillable = [
-        'id', 'goal_id', 'text', 'notes', 'done', 'images', 'order_index',
+        'id', 'goal_id', 'text', 'notes', 'notes_list', 'done', 'images', 'order_index',
         'started_at', 'accumulated_ms', 'timer_paused',
         'completion_note', 'completion_images',
     ];
@@ -19,6 +19,7 @@ class ChecklistItem extends Model
     protected $casts = [
         'done' => 'boolean',
         'images' => 'array',
+        'notes_list' => 'array',
         'timer_paused' => 'boolean',
         'started_at' => 'datetime',
         'completion_images' => 'array',

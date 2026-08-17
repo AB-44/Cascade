@@ -86,6 +86,7 @@ class GoalController extends Controller
                 [
                     'text' => $item['text'],
                     'notes' => $item['notes'] ?? null,
+                    'notes_list' => $item['notesList'] ?? [],
                     'done' => $item['done'],
                     'images' => $item['images'] ?? [],
                     'completion_note' => $item['completionNote'] ?? null,

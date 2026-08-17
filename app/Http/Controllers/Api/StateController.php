@@ -110,6 +110,7 @@ class StateController extends Controller
                 'id' => $item->id,
                 'text' => $item->text,
                 'notes' => $item->notes ?? '',
+                'notesList' => $item->notes_list ?? [],
                 'done' => $item->done,
                 'images' => $item->images ?? [],
                 'completionNote' => $item->completion_note ?? '',
