@@ -53,6 +53,7 @@ interface StoreCtx {
   syncStatus: "syncing" | "synced" | "offline";
   addGoal: (g: Goal) => void;
   updateGoal: (id: string, patch: Partial<Goal>) => void;
+  updateGoalAndFlush: (id: string, patch: Partial<Goal>) => void;
   deleteGoal: (id: string) => void;
   reorderUnderParent: (id: string, parentId: string | null, beforeId: string | null) => void;
   archiveGoal: (id: string, archived: boolean) => void;
@@ -318,6 +319,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return next;
     });
   }, []);
+
+  // Same as updateGoal, but pushes to the server immediately instead of
+  // waiting out the 1200ms debounce. Use this for explicit "save and close"
+  // moments (e.g. closing the notes modal) — without it, a user who edits
+  // then refreshes the page right away can lose the change, since nothing
+  // flushes the pending debounce on unload/reload.
+  const updateGoalAndFlush = useCallback(
+    (id: string, patch: Partial<Goal>) => {
+      setGoals((prev) => {
+        const next = prev.map((g) => (g.id === id ? touch({ ...g, ...patch }) : g));
+        flushGoalsNow(next);
+        return next;
+      });
+    },
+    [flushGoalsNow],
+  );
 
   const deleteGoal = useCallback(
     (id: string) => {
@@ -606,6 +623,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       syncStatus,
       addGoal,
       updateGoal,
+      updateGoalAndFlush,
       deleteGoal,
       reorderUnderParent,
       archiveGoal,
@@ -638,6 +656,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       syncStatus,
       addGoal,
       updateGoal,
+      updateGoalAndFlush,
       deleteGoal,
       reorderUnderParent,
       archiveGoal,

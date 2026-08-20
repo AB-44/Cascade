@@ -81,6 +81,7 @@ class StateController extends Controller
             'name' => $goal->name,
             'requirements' => $goal->requirements ?? '',
             'notes' => $goal->notes ?? '',
+            'notesList' => $goal->notes_list ?? [],
             'assignedTo' => $goal->assigned_to ?? '',
             'priority' => $goal->priority,
             'progress' => $goal->progress,

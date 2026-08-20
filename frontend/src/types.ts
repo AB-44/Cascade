@@ -40,6 +40,7 @@ export interface Goal {
   name: string;
   requirements: string;
   notes: string;
+  notesList?: TaskNote[]; // multiple notes on the stage/goal itself
   assignedTo: string;
   priority: Priority;
   progress: number; // 0-100

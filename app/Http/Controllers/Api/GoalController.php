@@ -41,6 +41,7 @@ class GoalController extends Controller
                         'name' => $g['name'],
                         'requirements' => $g['requirements'] ?? '',
                         'notes' => $g['notes'] ?? '',
+                        'notes_list' => $g['notesList'] ?? [],
                         'assigned_to' => $g['assignedTo'] ?? '',
                         'priority' => $g['priority'],
                         'progress' => $g['progress'],

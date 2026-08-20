@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Pencil, Plus, Trash2, User, ListTodo, ChevronLeft, Lock, StickyNote } from "lucide-react";
-import type { Goal } from "../types";
+import type { Goal, TaskNote } from "../types";
 import { useStore, useTree } from "../store";
 import { priorityColor, isStageLocked } from "../lib/goals";
 import type { TreeNode } from "../lib/goals";
@@ -8,9 +8,11 @@ import { ProgressBar } from "./ui";
 import { BlockedBadge, DeadlineBadge } from "./GoalBadges";
 import { isBlocked } from "../lib/goals";
 import TaskDetailPanel from "./TaskDetailPanel";
+import NotesModal from "./NotesModal";
 import { t, tFormat } from "../lib/i18n";
 import { MemberAvatar } from "./TeamPanel";
 import ConfirmModal from "./ConfirmModal";
+import { uid } from "../lib/storage";
 
 function goalNotesCount(goal: Goal): number {
   return goal.checklist.reduce((sum, c) => {
@@ -46,9 +48,10 @@ const STAGES_PAGE_SIZE = 10;
 
 export default function RoadmapView({ onEdit, onAddChild, filter, sequentialLock = false, allowNewGoals = true }: Props) {
   const tree = useTree(false);
-  const { goals, effProgress, lang, deleteGoal } = useStore();
+  const { goals, effProgress, lang, deleteGoal, updateGoal, updateGoalAndFlush } = useStore();
   const stages = filterTree(tree, filter);
   const [confirmDeleteStage, setConfirmDeleteStage] = useState<Goal | null>(null);
+  const [notesEditorGoalId, setNotesEditorGoalId] = useState<string | null>(null);
   // How many cards are currently shown per stage — keyed by stage goal id,
   // since each column's "show more" is independent of the others. A stage
   // not in this map just uses the default page size.
@@ -57,6 +60,28 @@ export default function RoadmapView({ onEdit, onAddChild, filter, sequentialLock
   // just horizontal instead of vertical: the trailing "show more" sits at
   // the end of the visible row instead of the bottom of a column.
   const [visibleStageCount, setVisibleStageCount] = useState(STAGES_PAGE_SIZE);
+
+  const migrateGoalNotesIfNeeded = (goal: Goal) => {
+    if ((goal.notesList?.length ?? 0) > 0) return;
+    if (!goal.notes) return;
+    const migrated: TaskNote = {
+      id: uid(),
+      title: t(lang, "notesModalTitle"),
+      body: goal.notes,
+      images: [],
+      createdAt: new Date().toISOString(),
+    };
+    updateGoal(goal.id, { notesList: [migrated] });
+  };
+
+  const saveGoalNotesList = (goalId: string, notesList: TaskNote[]) => {
+    // flush immediately so the notes survive an instant page refresh right after saving
+    updateGoalAndFlush(goalId, { notesList });
+  };
+
+  const goalHasNotes = (goal: Goal) =>
+    !!goal.notes || (goal.notesList ?? []).some((n) => n.title || n.body || n.images.length > 0);
+
 
   // A new filter is a new context — start back at the first page of stages
   // instead of carrying over however far the user had scrolled before.
@@ -106,6 +131,21 @@ export default function RoadmapView({ onEdit, onAddChild, filter, sequentialLock
                         <Plus size={14} />
                       </button>
                     )}
+                    <button
+                      onClick={() => {
+                        migrateGoalNotesIfNeeded(stage.goal);
+                        setNotesEditorGoalId(stage.goal.id);
+                      }}
+                      title={t(lang, "notesListTitle")}
+                      className={`relative rounded p-1 transition-colors duration-150 hover:bg-terrace-500/10 hover:text-terrace-600 ${
+                        goalHasNotes(stage.goal) ? "text-terrace-600" : "text-ink-soft"
+                      }`}
+                    >
+                      <StickyNote size={14} />
+                      {goalHasNotes(stage.goal) && (
+                        <span className="absolute end-0 top-0 h-1.5 w-1.5 rounded-full bg-terrace-600 ring-1 ring-card" />
+                      )}
+                    </button>
                     <button
                       onClick={() => onEdit(stage.goal)}
                       title={t(lang, "edit")}
@@ -219,6 +259,19 @@ export default function RoadmapView({ onEdit, onAddChild, filter, sequentialLock
           onCancel={() => setConfirmDeleteStage(null)}
         />
       )}
+
+      {notesEditorGoalId && (() => {
+        const goal = goals.find((g) => g.id === notesEditorGoalId);
+        if (!goal) return null;
+        return (
+          <NotesModal
+            notesList={goal.notesList ?? []}
+            lang={lang}
+            onSave={(list) => saveGoalNotesList(goal.id, list)}
+            onClose={() => setNotesEditorGoalId(null)}
+          />
+        );
+      })()}
     </>
   );
 }

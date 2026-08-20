@@ -16,7 +16,7 @@ class Goal extends Model
 
     protected $fillable = [
         'id', 'user_id', 'parent_id', 'roadmap_owner_id', 'project_id',
-        'name', 'requirements', 'notes', 'assigned_to', 'priority',
+        'name', 'requirements', 'notes', 'notes_list', 'assigned_to', 'priority',
         'progress', 'auto_progress', 'status',
         'deadline', 'start_date', 'reminder', 'reminder_at', 'reminder_fired',
         'started_at', 'accumulated_ms', 'timer_paused',
@@ -39,6 +39,7 @@ class Goal extends Model
         'reminder_at' => 'datetime',
         'started_at' => 'datetime',
         'depends_on' => 'array',
+        'notes_list' => 'array',
     ];
 
     public function user(): BelongsTo
